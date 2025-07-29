@@ -12,12 +12,12 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	cfg := config{}
-	cfg.db.dsn = "postgres://user:pass@localhost/db"
-	cfg.db.maxOpenConns = 10
-	cfg.db.maxIdleConns = 5
-	cfg.db.maxIdleTime = time.Minute
-
+	args := []string{
+		"-db-dsn=mock-dsn",
+		"-db-max-open-conns=100",
+		"-db-max-idle-conns=50",
+		"-db-max-idle-time=20m",
+	}
 	var buf bytes.Buffer
 	logger := newLogger(&buf)
 
@@ -31,11 +31,38 @@ func TestRun(t *testing.T) {
 			return db, nil
 		}
 
-		exitCode := run(cfg, logger, mockSQLOpen)
+		exitCode := run(args, logger, mockSQLOpen)
 		assert.Equal(t, exitCode, 0)
 
 		logOutput := buf.String()
 		assert.Contains(t, logOutput, "database connection pool established")
+
+		buf.Reset()
+	})
+
+	t.Run("should fail if flag error", func(t *testing.T) {
+		invalidArgs := []string{
+			"-db-dsn=mock-dsn",
+			"-db-max-open-conns=no-int",
+			"-db-max-idle-conns=50",
+			"-db-max-idle-time=20m",
+		}
+
+		mockSQLOpen := func(driverName, dsn string) (*sql.DB, error) {
+			return nil, nil
+		}
+
+		exitCode := run(invalidArgs, logger, mockSQLOpen)
+		assert.Equal(t, exitCode, 1)
+
+		logOutput := buf.String()
+		assert.Contains(
+			t,
+			logOutput,
+			`"invalid value \"no-int\" for flag -db-max-open-conns: parse error"`,
+		)
+
+		buf.Reset()
 	})
 
 	t.Run("should return 1 if fails to establish database connection pool", func(t *testing.T) {
@@ -43,11 +70,13 @@ func TestRun(t *testing.T) {
 			return nil, errors.New("database error")
 		}
 
-		exitCode := run(cfg, logger, mockSQLOpen)
+		exitCode := run(args, logger, mockSQLOpen)
 		assert.Equal(t, exitCode, 1)
 
 		logOutput := buf.String()
 		assert.Contains(t, logOutput, "database error")
+
+		buf.Reset()
 	})
 }
 

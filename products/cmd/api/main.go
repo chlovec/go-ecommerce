@@ -7,12 +7,13 @@ import (
 	"log/slog"
 	"os"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 func main() {
 	logger := newLogger(os.Stdout)
-	cfg := loadConfig(os.Getenv)
-	exitCode := run(cfg, logger, sql.Open)
+	exitCode := run(os.Args[1:], logger, sql.Open)
 	os.Exit(exitCode)
 }
 
@@ -66,10 +67,18 @@ func openDB(
 }
 
 func run(
-	cfg config,
+	args []string,
 	logger *slog.Logger,
 	sqlOpen func(driverName string, dataSourceName string) (*sql.DB, error),
 ) int {
+
+	// 1. Load config
+	cfg, err := loadConfig(args, os.Getenv)
+	if err != nil {
+		logger.Error(err.Error())
+		return 1
+	}
+
 	//1. Create a db connection pool
 	db, err := openDB(cfg, sqlOpen)
 	if err != nil {
