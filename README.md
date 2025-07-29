@@ -11,6 +11,8 @@ Go-Ecommerce is a sample ecommerce microservice written in go in a mono repo for
 
 ## Lesson 2: Products REST API Setup
 - Add a subdirectory to the `go-ecommerce` folder and name it `products`
+- Add `golangci.yml` file to the `products` directory root
+- Add `Makefile` file to the products directory root
 - Create the directories `./products/cmd/api`
 - CD into `products` directory
 - Run go mod init:
