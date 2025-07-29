@@ -3,41 +3,21 @@ package main
 import (
 	"context"
 	"database/sql"
+	"io"
 	"log/slog"
 	"os"
 	"time"
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := newLogger(os.Stdout)
 	cfg := loadConfig(os.Getenv)
 	exitCode := run(cfg, logger, sql.Open)
 	os.Exit(exitCode)
 }
 
-func run(
-	cfg config,
-	logger *slog.Logger,
-	sqlOpen func(driverName string, dataSourceName string) (*sql.DB, error),
-) int {
-	//1. Create a db connection pool
-	db, err := openDB(cfg, sqlOpen)
-	if err != nil {
-		logger.Error(err.Error())
-		return 1
-	}
-
-	// Defer a call to db.Close() so that the connection pool is closed before the
-	// main() function exits.
-	defer db.Close()
-
-	// Log a message to say that the connection pool has been successfully
-	// established.
-	logger.Info("database connection pool established")
-
-	//2. Listen to and handle requests
-
-	return 0
+func newLogger(w io.Writer) *slog.Logger {
+	return slog.New(slog.NewTextHandler(w, nil))
 }
 
 // The openDB() function returns a sql.DB connection pool that will be used by
@@ -83,4 +63,29 @@ func openDB(
 
 	// Return the sql.DB connection pool.
 	return db, nil
+}
+
+func run(
+	cfg config,
+	logger *slog.Logger,
+	sqlOpen func(driverName string, dataSourceName string) (*sql.DB, error),
+) int {
+	//1. Create a db connection pool
+	db, err := openDB(cfg, sqlOpen)
+	if err != nil {
+		logger.Error(err.Error())
+		return 1
+	}
+
+	// Defer a call to db.Close() so that the connection pool is closed before the
+	// main() function exits.
+	defer db.Close()
+
+	// Log a message to say that the connection pool has been successfully
+	// established.
+	logger.Info("database connection pool established")
+
+	//2. Listen to and handle requests
+
+	return 0
 }

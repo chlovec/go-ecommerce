@@ -37,6 +37,12 @@ audit:
 	@echo 'Running tests...'
 	go test -race -vet=off ./...
 
+.PHONY: test/rpt
+test/rpt:
+	go test -race -vet=off -coverprofile=coverage.out ./... 
+	@go tool cover -html=coverage.out -o coverage.html
+	@xdg-open coverage.html || open coverage.html
+
 .PHONY: build
 build:
 	@echo "Building cmd/api..."
