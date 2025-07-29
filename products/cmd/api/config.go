@@ -41,7 +41,7 @@ func loadConfig(args []string, getEnv func(key string) string) (config, error) {
 	fs.DurationVar(
 		&cfg.db.maxIdleTime,
 		"db-max-idle-time",
-		time.Duration(getIntEnv(getEnv, "DB_MAX_IDLE_TIME", 25))*time.Minute,
+		time.Duration(getIntEnv(getEnv, "DB_MAX_IDLE_TIME", 15))*time.Minute,
 		"PostgreSQL max connection idle time",
 	)
 
