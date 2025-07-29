@@ -10,16 +10,18 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	exitCode := run(logger, sql.Open)
+	cfg := loadConfig(os.Getenv)
+	exitCode := run(cfg, logger, sql.Open)
 	os.Exit(exitCode)
 }
 
 func run(
-	logger *slog.Logger, 
+	cfg config,
+	logger *slog.Logger,
 	sqlOpen func(driverName string, dataSourceName string) (*sql.DB, error),
 ) int {
 	//1. Create a db connection pool
-	db, err := openDB(sqlOpen)
+	db, err := openDB(cfg, sqlOpen)
 	if err != nil {
 		logger.Error(err.Error())
 		return 1
@@ -35,34 +37,34 @@ func run(
 
 	//2. Listen to and handle requests
 
-	return  0
+	return 0
 }
 
-// The openDB() method returns a sql.DB connection pool that will be used by
+// The openDB() function returns a sql.DB connection pool that will be used by
 // with the service to connect to the database and perform database operations.
 func openDB(
+	cfg config,
 	sqlOpen func(driverName string, dataSourceName string) (*sql.DB, error),
 ) (*sql.DB, error) {
 	// Use sql.Open() to create an empty connection pool, using the DSN from the config
 	// struct.
-	dsn := "the/db/connection/string"
-	db, err := sqlOpen("postgres", dsn)
+	db, err := sqlOpen("postgres", cfg.db.dsn)
 	if err != nil {
 		return nil, err
 	}
 
 	// Set the maximum number of open (in-use + idle) connections in the pool.
 	// Passing a value less than or equal to 0 will mean there is no limit.
-	db.SetMaxOpenConns(25)
+	db.SetMaxOpenConns(cfg.db.maxOpenConns)
 
 	// Set the maximum number of idle connections in the pool.
 	// Passing a value less than or equal to 0 will mean there is no limit.
-	db.SetMaxIdleConns(25)
+	db.SetMaxIdleConns(cfg.db.maxIdleConns)
 
-	// Set the maximum idle timeout for connections in the pool. 
-	// Passing a duration less than or equal to 0 will mean that 
+	// Set the maximum idle timeout for connections in the pool.
+	// Passing a duration less than or equal to 0 will mean that
 	// connections are not closed due to their idle time.
-	db.SetConnMaxIdleTime(15*time.Minute)
+	db.SetConnMaxIdleTime(cfg.db.maxIdleTime)
 
 	// Create a context with a 5-second timeout deadline.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
