@@ -4,12 +4,23 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
+
+type MockAPIServer struct {
+	mock.Mock
+}
+
+func (m *MockAPIServer) Serve() error {
+	args := m.Called()
+	return args.Error(0)
+}
 
 func TestRun(t *testing.T) {
 	args := []string{
@@ -31,7 +42,13 @@ func TestRun(t *testing.T) {
 			return db, nil
 		}
 
-		exitCode := run(args, logger, mockSQLOpen)
+		mockAPIServer := new(MockAPIServer)
+		mockNewServer := func(cfg config, logger *slog.Logger) APIServer {
+			return mockAPIServer
+		}
+		mockAPIServer.On("Serve").Return(nil)
+
+		exitCode := run(args, logger, mockSQLOpen, mockNewServer)
 		assert.Equal(t, exitCode, 0)
 
 		logOutput := buf.String()
@@ -52,7 +69,11 @@ func TestRun(t *testing.T) {
 			return nil, nil
 		}
 
-		exitCode := run(invalidArgs, logger, mockSQLOpen)
+		mockAPIServer := new(MockAPIServer)
+		mockNewServer := func(cfg config, logger *slog.Logger) APIServer {
+			return mockAPIServer
+		}
+		exitCode := run(invalidArgs, logger, mockSQLOpen, mockNewServer)
 		assert.Equal(t, exitCode, 1)
 
 		logOutput := buf.String()
@@ -70,13 +91,44 @@ func TestRun(t *testing.T) {
 			return nil, errors.New("database error")
 		}
 
-		exitCode := run(args, logger, mockSQLOpen)
+		mockAPIServer := new(MockAPIServer)
+		mockNewServer := func(cfg config, logger *slog.Logger) APIServer {
+			return mockAPIServer
+		}
+		exitCode := run(args, logger, mockSQLOpen, mockNewServer)
 		assert.Equal(t, exitCode, 1)
 
 		logOutput := buf.String()
 		assert.Contains(t, logOutput, "database error")
 
 		buf.Reset()
+	})
+
+	t.Run("should return 1 if server error", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		assert.NoError(t, err)
+		defer db.Close()
+		mock.ExpectClose()
+
+		mockSQLOpen := func(driverName, dsn string) (*sql.DB, error) {
+			return db, nil
+		}
+
+		mockAPIServer := new(MockAPIServer)
+		mockNewServer := func(cfg config, logger *slog.Logger) APIServer {
+			return mockAPIServer
+		}
+		mockAPIServer.On("Serve").Return(errors.New("server error"))
+
+		exitCode := run(args, logger, mockSQLOpen, mockNewServer)
+		assert.Equal(t, exitCode, 1)
+
+		logOutput := buf.String()
+		assert.Contains(t, logOutput, "database connection pool established")
+		assert.Contains(t, logOutput, "server error")
+
+		buf.Reset()
+		mockAPIServer.AssertExpectations(t)
 	})
 }
 

@@ -10,6 +10,8 @@ import (
 func TestLoadConfig(t *testing.T) {
 	t.Run("should load config from flags", func(t *testing.T) {
 		args := []string{
+			"-port=8080",
+			"-env=test",
 			"-db-dsn=mock-dsn",
 			"-db-max-open-conns=100",
 			"-db-max-idle-conns=50",
@@ -21,6 +23,8 @@ func TestLoadConfig(t *testing.T) {
 		}
 
 		expectedConfig := config{}
+		expectedConfig.env = "test"
+		expectedConfig.port = 8080
 		expectedConfig.db.dsn = "mock-dsn"
 		expectedConfig.db.maxOpenConns = 100
 		expectedConfig.db.maxIdleConns = 50
@@ -55,10 +59,7 @@ func TestLoadConfig(t *testing.T) {
 	})
 
 	t.Run("should load config from env", func(t *testing.T) {
-		args := []string{
-			"-db-dsn=mock-dsn",
-			"-db-max-open-conns=100",
-		}
+		args := []string{}
 
 		mockGetEnv := func(key string) string {
 			switch key {
@@ -70,14 +71,20 @@ func TestLoadConfig(t *testing.T) {
 				return "15"
 			case "DB_MAX_IDLE_TIME":
 				return "10"
+			case "SERVER_PORT":
+				return "5000"
+			case "ENV":
+				return "test server 2"
 			default:
 				return ""
 			}
 		}
 
 		expectedConfig := config{}
-		expectedConfig.db.dsn = "mock-dsn"
-		expectedConfig.db.maxOpenConns = 100
+		expectedConfig.env = "test server 2"
+		expectedConfig.port = 5000
+		expectedConfig.db.dsn = "env-dsn"
+		expectedConfig.db.maxOpenConns = 30
 		expectedConfig.db.maxIdleConns = 15
 		expectedConfig.db.maxIdleTime = 10 * time.Minute
 
@@ -99,12 +106,18 @@ func TestLoadConfig(t *testing.T) {
 				return "15"
 			case "DB_MAX_IDLE_TIME":
 				return "10"
+			case "SERVER_PORT":
+				return "5000"
+			case "ENV":
+				return "test server 2"
 			default:
 				return ""
 			}
 		}
 
 		expectedConfig := config{}
+		expectedConfig.env = "test server 2"
+		expectedConfig.port = 5000
 		expectedConfig.db.dsn = "env-dsn"
 		expectedConfig.db.maxOpenConns = 30
 		expectedConfig.db.maxIdleConns = 15
@@ -123,6 +136,7 @@ func TestLoadConfig(t *testing.T) {
 		}
 
 		expectedConfig := config{}
+		expectedConfig.port = 4000
 		expectedConfig.db.dsn = ""
 		expectedConfig.db.maxOpenConns = 25
 		expectedConfig.db.maxIdleConns = 25

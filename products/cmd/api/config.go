@@ -7,7 +7,9 @@ import (
 )
 
 type config struct {
-	db struct {
+	env  string
+	port int
+	db   struct {
 		dsn          string
 		maxOpenConns int
 		maxIdleConns int
@@ -23,6 +25,14 @@ func loadConfig(args []string, getEnv func(key string) string) (config, error) {
 
 	// Use a new FlagSet for isolation
 	fs := flag.NewFlagSet("config", flag.ContinueOnError)
+
+	fs.IntVar(&cfg.port, "port", getIntEnv(getEnv, "SERVER_PORT", 4000), "API server port")
+	fs.StringVar(
+		&cfg.env,
+		"env",
+		getEnv("ENV"),
+		"Environment (development|staging|production)",
+	)
 
 	//Read db configurations
 	fs.StringVar(&cfg.db.dsn, "db-dsn", getEnv("PRODUCTS_DB_DSN"), "PostgreSQL DSN")

@@ -1,3 +1,11 @@
 {
-  "cSpell.words": ["coverprofile", "dylib", "Ecommerce", "golangci", "staticcheck", "stretchr"]
+  "cSpell.words": [
+    "coverprofile",
+    "dylib",
+    "Ecommerce",
+    "golangci",
+    "httprouter",
+    "staticcheck",
+    "stretchr"
+  ]
 }

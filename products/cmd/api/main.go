@@ -13,7 +13,7 @@ import (
 
 func main() {
 	logger := newLogger(os.Stdout)
-	exitCode := run(os.Args[1:], logger, sql.Open)
+	exitCode := run(os.Args[1:], logger, sql.Open, newServer)
 	os.Exit(exitCode)
 }
 
@@ -70,16 +70,17 @@ func run(
 	args []string,
 	logger *slog.Logger,
 	sqlOpen func(driverName string, dataSourceName string) (*sql.DB, error),
+	newServer func(cfg config, logger *slog.Logger) APIServer,
 ) int {
 
-	// 1. Load config
+	// Load config
 	cfg, err := loadConfig(args, os.Getenv)
 	if err != nil {
 		logger.Error(err.Error())
 		return 1
 	}
 
-	//1. Create a db connection pool
+	//Create a db connection pool
 	db, err := openDB(cfg, sqlOpen)
 	if err != nil {
 		logger.Error(err.Error())
@@ -94,7 +95,13 @@ func run(
 	// established.
 	logger.Info("database connection pool established")
 
-	//2. Listen to and handle requests
+	// Instantiate a new server and start listening and responding to requests.
+	svr := newServer(cfg, logger)
+	err = svr.Serve()
+	if err != nil {
+		logger.Error(err.Error())
+		return 1
+	}
 
 	return 0
 }
