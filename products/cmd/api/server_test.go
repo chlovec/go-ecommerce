@@ -47,10 +47,11 @@ func (s *safeBuffer) String() string {
 }
 
 func TestServe(t *testing.T) {
+	cfg := config{port: 8080, env: "test"}
+
 	t.Run("should start and shut down gracefully", func(t *testing.T) {
 		sb := &safeBuffer{b: &bytes.Buffer{}}
 		logger := newLogger(sb)
-		cfg := config{port: 8080, env: "test"}
 
 		svr := newServer(cfg, logger)
 
@@ -74,7 +75,7 @@ func TestServe(t *testing.T) {
 	t.Run("should start and not shutdown gracefully", func(t *testing.T) {
 		sb := &safeBuffer{b: &bytes.Buffer{}}
 		logger := newLogger(sb)
-		cfg := config{port: 8080, env: "test"}
+
 		mockSrv := new(MockHTTPServer)
 
 		mockSrv.On("Shutdown", mock.Anything).Return(errors.New("server shutdown error"))
@@ -107,7 +108,7 @@ func TestServe(t *testing.T) {
 	t.Run("should fail with listen and serve error", func(t *testing.T) {
 		sb := &safeBuffer{b: &bytes.Buffer{}}
 		logger := newLogger(sb)
-		cfg := config{port: 8080, env: "test"}
+
 		mockSrv := new(MockHTTPServer)
 
 		mockSrv.On("Shutdown", mock.Anything).Return(nil)

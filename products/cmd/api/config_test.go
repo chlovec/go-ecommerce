@@ -10,8 +10,11 @@ import (
 func TestLoadConfig(t *testing.T) {
 	t.Run("should load config from flags", func(t *testing.T) {
 		args := []string{
-			"-port=8080",
 			"-env=test",
+			"-port=8080",
+			"-svr-idle-timeout=1s",
+			"-svr-read-timeout=2s",
+			"-svr-write-timeout=5s",
 			"-db-dsn=mock-dsn",
 			"-db-max-open-conns=100",
 			"-db-max-idle-conns=50",
@@ -23,6 +26,9 @@ func TestLoadConfig(t *testing.T) {
 		}
 
 		expectedConfig := config{}
+		expectedConfig.idleTimeout = time.Second
+		expectedConfig.readTimeout = 2 * time.Second
+		expectedConfig.WriteTimeout = 5 * time.Second
 		expectedConfig.env = "test"
 		expectedConfig.port = 8080
 		expectedConfig.db.dsn = "mock-dsn"
@@ -81,6 +87,9 @@ func TestLoadConfig(t *testing.T) {
 		}
 
 		expectedConfig := config{}
+		expectedConfig.idleTimeout = time.Minute
+		expectedConfig.readTimeout = 5 * time.Second
+		expectedConfig.WriteTimeout = 10 * time.Second
 		expectedConfig.env = "test server 2"
 		expectedConfig.port = 5000
 		expectedConfig.db.dsn = "env-dsn"
@@ -118,6 +127,9 @@ func TestLoadConfig(t *testing.T) {
 		expectedConfig := config{}
 		expectedConfig.env = "test server 2"
 		expectedConfig.port = 5000
+		expectedConfig.idleTimeout = time.Minute
+		expectedConfig.readTimeout = 5 * time.Second
+		expectedConfig.WriteTimeout = 10 * time.Second
 		expectedConfig.db.dsn = "env-dsn"
 		expectedConfig.db.maxOpenConns = 30
 		expectedConfig.db.maxIdleConns = 15
@@ -136,7 +148,11 @@ func TestLoadConfig(t *testing.T) {
 		}
 
 		expectedConfig := config{}
+		expectedConfig.env = ""
 		expectedConfig.port = 4000
+		expectedConfig.idleTimeout = time.Minute
+		expectedConfig.readTimeout = 5 * time.Second
+		expectedConfig.WriteTimeout = 10 * time.Second
 		expectedConfig.db.dsn = ""
 		expectedConfig.db.maxOpenConns = 25
 		expectedConfig.db.maxIdleConns = 25

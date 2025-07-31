@@ -7,9 +7,12 @@ import (
 )
 
 type config struct {
-	env  string
-	port int
-	db   struct {
+	env          string
+	port         int
+	idleTimeout  time.Duration
+	readTimeout  time.Duration
+	WriteTimeout time.Duration
+	db           struct {
 		dsn          string
 		maxOpenConns int
 		maxIdleConns int
@@ -33,6 +36,9 @@ func loadConfig(args []string, getEnv func(key string) string) (config, error) {
 		getEnv("ENV"),
 		"Environment (development|staging|production)",
 	)
+	fs.DurationVar(&cfg.idleTimeout, "svr-idle-timeout", time.Minute, "API server idle timeout")
+	fs.DurationVar(&cfg.readTimeout, "svr-read-timeout", 5*time.Second, "API server idle timeout")
+	fs.DurationVar(&cfg.WriteTimeout, "svr-write-timeout", 10*time.Second, "API server write timeout")
 
 	//Read db configurations
 	fs.StringVar(&cfg.db.dsn, "db-dsn", getEnv("PRODUCTS_DB_DSN"), "PostgreSQL DSN")

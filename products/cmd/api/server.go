@@ -39,9 +39,9 @@ func newServer(cfg config, logger *slog.Logger) APIServer {
 		httpServer: &http.Server{
 			Addr:         addr,
 			Handler:      httprouter.New(),
-			IdleTimeout:  time.Minute,
-			ReadTimeout:  5 * time.Second,
-			WriteTimeout: 10 * time.Second,
+			IdleTimeout:  cfg.idleTimeout,
+			ReadTimeout:  cfg.readTimeout,
+			WriteTimeout: cfg.WriteTimeout,
 			ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
 		},
 	}
