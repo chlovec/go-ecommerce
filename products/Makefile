@@ -52,3 +52,48 @@ build:
 .PHONY: run/api
 run/api:
 	go run ./cmd/api
+
+## db/psql: connect to the database using psql
+.PHONY: db/psql
+db/psql:
+	psql ${PRODUCTS_DB_DSN}
+
+## db/migrations/new name=<file_name>: Create a new database migration
+.PHONY: db/migrations/new
+db/migrations/new:
+	@if [ -z "$(name)" ]; then \
+		echo "Usage: make migration name=<file_name>"; \
+		exit 1; \
+	fi
+	@echo 'Creating migration files for ${name}...'
+	migrate create -seq -ext=.sql -dir=./migrations ${name}; \
+
+## db/migrations/up: Apply all up database migrations
+.PHONY: db/migrations/up
+db/migrations/up: confirm
+	@if [ -z "$(PRODUCTS_DB_DSN)" ]; then \
+		echo "Usage: PRODUCTS_DB_DSN must be set or passed as a flag"; \
+		exit 1; \
+	fi
+	@echo 'Running migrations up...'
+	migrate -path=./migrations -database="$(PRODUCTS_DB_DSN)" up
+
+## db/migrations/down: Revert all database migrations
+.PHONY: db/migrations/down
+db/migrations/down: confirm
+	@if [ -z "$(PRODUCTS_DB_DSN)" ]; then \
+		echo "Usage: PRODUCTS_DB_DSN must be set or passed as a flag"; \
+		exit 1; \
+	fi
+	@echo 'Running migrations down...'
+	migrate -path=./migrations -database="$(PRODUCTS_DB_DSN)" down
+
+## db/migrations/force version=<version>: Force the database schema to a specific version. Does not run any sql (useful for fixing broken migrations)
+.PHONY: db/migrations/force
+db/migrations/force: confirm
+	@if [ -z "$(PRODUCTS_DB_DSN)" ]; then \
+		echo "Usage: PRODUCTS_DB_DSN must be set or passed as a flag"; \
+		exit 1; \
+	fi
+	@echo 'Running force migrations...'
+	migrate -path=./migrations -database="$(PRODUCTS_DB_DSN)" force ${version}

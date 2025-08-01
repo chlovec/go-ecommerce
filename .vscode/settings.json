@@ -4,8 +4,12 @@
     "dylib",
     "Ecommerce",
     "golangci",
+    "golines",
     "httprouter",
+    "psql",
     "staticcheck",
-    "stretchr"
+    "staticheck",
+    "stretchr",
+    "timestampz"
   ]
 }
