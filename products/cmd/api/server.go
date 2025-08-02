@@ -10,8 +10,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/julienschmidt/httprouter"
 )
 
 type APIServer interface {
@@ -38,7 +36,7 @@ func newServer(cfg config, logger *slog.Logger) APIServer {
 		logger: logger,
 		httpServer: &http.Server{
 			Addr:         addr,
-			Handler:      httprouter.New(),
+			Handler:      routes(),
 			IdleTimeout:  cfg.idleTimeout,
 			ReadTimeout:  cfg.readTimeout,
 			WriteTimeout: cfg.WriteTimeout,
