@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type TestStruct struct {
@@ -29,57 +31,44 @@ func TestReadJSON(t *testing.T) {
 
 	t.Run("valid JSON", func(t *testing.T) {
 		w, req := setup(t, `{"name":"Alice","age":30}`)
-		var ts TestStruct
-		err := h.readJSON(w, req, &ts)
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
+		var actualResult TestStruct
+		err := h.readJSON(w, req, &actualResult)
+		assert.NoError(t, err)
+
+		expectedResult := TestStruct{Name: "Alice", Age: 30}
+		assert.Equal(t, expectedResult, actualResult)
 	})
 
 	t.Run("empty body", func(t *testing.T) {
 		w, req := setup(t, "")
 		var ts TestStruct
 		err := h.readJSON(w, req, &ts)
-		if err == nil || err.Error() != "body must not be empty" {
-			t.Errorf("expected 'body must not be empty', got %v", err)
-		}
+		assert.Error(t, err)
+		assert.Equal(t, "body must not be empty", err.Error())
 	})
 
 	t.Run("malformed JSON (syntax error)", func(t *testing.T) {
 		w, req := setup(t, `{"name":`)
 		var ts TestStruct
 		err := h.readJSON(w, req, &ts)
-		if err == nil || !strings.Contains(err.Error(), "body contains badly-formed JSON") {
-			t.Errorf("expected syntax error, got %v", err)
-		}
-	})
-
-	t.Run("unexpected EOF", func(t *testing.T) {
-		w, req := setup(t, `{"name":"Alice",`)
-		var ts TestStruct
-		err := h.readJSON(w, req, &ts)
-		if err == nil || !strings.Contains(err.Error(), "body contains badly-formed JSON") {
-			t.Errorf("expected unexpected EOF error, got %v", err)
-		}
+		assert.Error(t, err)
+		assert.Equal(t, "body contains badly-formed JSON", err.Error())
 	})
 
 	t.Run("type mismatch", func(t *testing.T) {
 		w, req := setup(t, `{"name":"Alice","age":"not-a-number"}`)
 		var ts TestStruct
 		err := h.readJSON(w, req, &ts)
-		if err == nil ||
-			!strings.Contains(err.Error(), "body contains incorrect JSON type for field") {
-			t.Errorf("expected unmarshal type error, got %v", err)
-		}
+		assert.Error(t, err)
+		assert.Equal(t, `body contains incorrect JSON type for field "age"`, err.Error())
 	})
 
 	t.Run("unknown field", func(t *testing.T) {
 		w, req := setup(t, `{"name":"Alice","age":30,"extra":"field"}`)
 		var ts TestStruct
 		err := h.readJSON(w, req, &ts)
-		if err == nil || !strings.Contains(err.Error(), "json: unknown field") {
-			t.Errorf("expected unknown field error, got %v", err)
-		}
+		assert.Error(t, err)
+		assert.Equal(t, `json: unknown field "extra"`, err.Error())
 	})
 
 	t.Run("too large body", func(t *testing.T) {
@@ -90,19 +79,16 @@ func TestReadJSON(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(largeBody))
 		var ts TestStruct
 		err := h.readJSON(w, req, &ts)
-		if err == nil || !strings.Contains(err.Error(), "body must not be larger than") {
-			t.Errorf("expected max bytes error, got %v", err)
-		}
+		assert.Error(t, err)
+		assert.Equal(t, "body must not be larger than 1048576 bytes", err.Error())
 	})
 
 	t.Run("multiple JSON values", func(t *testing.T) {
 		w, req := setup(t, `{"name":"Alice","age":30}{"name":"Bob","age":40}`)
 		var ts TestStruct
 		err := h.readJSON(w, req, &ts)
-		if err == nil ||
-			!strings.Contains(err.Error(), "body must only contain a single JSON value") {
-			t.Errorf("expected multiple JSON values error, got %v", err)
-		}
+		assert.Error(t, err)
+		assert.Equal(t, "body must only contain a single JSON value", err.Error())
 	})
 
 	t.Run("badly formed json at character d", func(t *testing.T) {
@@ -111,21 +97,16 @@ func TestReadJSON(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/", io.NopCloser(strings.NewReader(largeBody)))
 		var ts TestStruct
 		err := h.readJSON(w, req, &ts)
-		if err == nil ||
-			!strings.Contains(err.Error(), "body contains badly-formed JSON (at character 1)") {
-			t.Errorf("body contains badly-formed JSON (at character 1) error, got %v", err)
-		}
+		assert.Error(t, err)
+		assert.Equal(t, "body contains badly-formed JSON (at character 1)", err.Error())
 	})
 
 	t.Run("incorrect json type at character d", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`"not-an-int"`))
+		w, req := setup(t, `"not-an-int"`)
 		var dst int
 		err := h.readJSON(w, req, &dst)
-		if err == nil ||
-			!strings.Contains(err.Error(), "body contains incorrect JSON type (at character 12)") {
-			t.Errorf("body contains incorrect JSON type (at character), got %v", err)
-		}
+		assert.Error(t, err)
+		assert.Equal(t, "body contains incorrect JSON type (at character 12)", err.Error())
 	})
 
 	t.Run("invalid unmarshal non-pointer", func(t *testing.T) {
@@ -133,8 +114,7 @@ func TestReadJSON(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"Alice"}`))
 		var ts TestStruct
 		err := h.readJSON(w, req, ts) // ts is not a pointer
-		if err == nil || !strings.Contains(err.Error(), "json: Unmarshal(non-pointer") {
-			t.Errorf("expected invalid unmarshal error, got %v", err)
-		}
+		assert.Error(t, err)
+		assert.Equal(t, "json: Unmarshal(non-pointer handlers.TestStruct)", err.Error())
 	})
 }
