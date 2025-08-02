@@ -38,7 +38,12 @@ func loadConfig(args []string, getEnv func(key string) string) (config, error) {
 	)
 	fs.DurationVar(&cfg.idleTimeout, "svr-idle-timeout", time.Minute, "API server idle timeout")
 	fs.DurationVar(&cfg.readTimeout, "svr-read-timeout", 5*time.Second, "API server idle timeout")
-	fs.DurationVar(&cfg.WriteTimeout, "svr-write-timeout", 10*time.Second, "API server write timeout")
+	fs.DurationVar(
+		&cfg.WriteTimeout,
+		"svr-write-timeout",
+		10*time.Second,
+		"API server write timeout",
+	)
 
 	//Read db configurations
 	fs.StringVar(&cfg.db.dsn, "db-dsn", getEnv("PRODUCTS_DB_DSN"), "PostgreSQL DSN")

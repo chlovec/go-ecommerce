@@ -36,7 +36,7 @@ func newServer(cfg config, logger *slog.Logger) APIServer {
 		logger: logger,
 		httpServer: &http.Server{
 			Addr:         addr,
-			Handler:      routes(),
+			Handler:      routes(logger),
 			IdleTimeout:  cfg.idleTimeout,
 			ReadTimeout:  cfg.readTimeout,
 			WriteTimeout: cfg.WriteTimeout,

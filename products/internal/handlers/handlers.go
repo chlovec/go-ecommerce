@@ -1,8 +1,11 @@
 package handlers
 
+import "log/slog"
+
 type Handlers struct {
+	logger *slog.Logger
 }
 
-func NewHandlers() *Handlers {
-	return &Handlers{}
+func NewHandlers(logger *slog.Logger) *Handlers {
+	return &Handlers{logger: logger}
 }
