@@ -15,5 +15,5 @@ func routes() http.Handler {
 	// Products request routing
 	router.HandlerFunc(http.MethodPost, "/v1/api/products", h.CreateProductHandler)
 
-	return  router
+	return router
 }
