@@ -1,16 +1,18 @@
 CREATE TABLE IF NOT EXISTS categories (
-    id bigserial PRIMARY KEY,
-    created_at timestamptz(0) NOT NULL DEFAULT NOW(),
-    name text NOT NULL,
-    description text NOT NULL,
-    version integer NOT NULL DEFAULT 1
+    id BIGSERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ(0) NOT NULL DEFAULT NOW(),
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS products (
-    id bigserial PRIMARY KEY,
-    created_at timestamptz(0) NOT NULL DEFAULT NOW(),
-    name text NOT NULL,
-    description text NOT NULL,
-    category_id bigint NOT NULL REFERENCES categories,
-    version integer NOT NULL DEFAULT 1
+    id BIGSERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ(0) NOT NULL DEFAULT NOW(),
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    category_id BIGINT NOT NULL REFERENCES categories(id),
+    price NUMERIC(10, 3) NOT NULL DEFAULT 0.0,
+    quantity INTEGER NOT NULL DEFAULT 0,
+    version INTEGER NOT NULL DEFAULT 1
 );
