@@ -28,7 +28,7 @@ func (h *Handlers) readJSON(w http.ResponseWriter, r *http.Request, dst any) err
 	if err != nil {
 		var syntaxError *json.SyntaxError
 		var unmarshalTypeError *json.UnmarshalTypeError
-		// var invalidUnmarshalError *json.InvalidUnmarshalError
+		var invalidUnmarshalError *json.InvalidUnmarshalError
 		var maxBytesError *http.MaxBytesError
 
 		switch {
