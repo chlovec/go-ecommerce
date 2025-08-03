@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"net/http"
 	"os"
@@ -48,12 +49,13 @@ func (s *safeBuffer) String() string {
 
 func TestServe(t *testing.T) {
 	cfg := config{port: 8080, env: "test"}
+	db := sql.DB{}
 
 	t.Run("should start and shut down gracefully", func(t *testing.T) {
 		sb := &safeBuffer{b: &bytes.Buffer{}}
 		logger := newLogger(sb)
 
-		svr := newServer(cfg, logger)
+		svr := newServer(cfg, logger, &db)
 
 		// Simulate manual shutdown
 		go func() {

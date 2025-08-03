@@ -1,6 +1,8 @@
 package data
 
 import (
+	"context"
+	"database/sql"
 	"time"
 )
 
@@ -12,8 +14,13 @@ type Product struct {
 	Price       float64   `json:"price"`
 	Quantity    int       `json:"quantity"`
 	Version     int       `json:"version"`
-	CreatedAT   time.Time `json:"-"`
+	CreatedAt   time.Time `json:"-"`
 }
 
-type ProductModel interface {
+type ProductModel struct {
+	DB *sql.DB
+}
+
+func (p *ProductModel) Insert(ctx context.Context, product *Product) error {
+	return nil
 }

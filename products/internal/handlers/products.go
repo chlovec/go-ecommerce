@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"context"
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/chlovec/go-ecommerce/products/internal/data"
 )
@@ -12,14 +15,6 @@ type productDTO struct {
 	Description string  `json:"description" validate:"omitempty"`
 	Price       float64 `json:"price"       validate:"omitempty,gte=0"`
 	Quantity    int     `json:"quantity"    validate:"omitempty,gte=0"`
-}
-
-var productFieldMap = map[string]string{
-	"Name":        "name",
-	"CategoryID":  "category_id",
-	"Description": "description",
-	"Price":       "price",
-	"Quantity":    "quantity",
 }
 
 // POST v1/api/products
@@ -42,9 +37,9 @@ func (h *Handlers) CreateProductHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Save to db. If the db query fails and is because it couldn't find a matching
-	// category respond with 400 Bad Request. If it fails because of any other issue,
-	// respond with 500 Internal Server Error.
+	// Save product to db. If there is an error and is because the category was not found,
+	// respond with 404 Not Found. For any other error, respond with 500 Internal Server
+	// Error.
 	product := data.Product{
 		Name:        payload.Name,
 		CategoryID:  payload.CategoryID,
@@ -53,6 +48,21 @@ func (h *Handlers) CreateProductHandler(w http.ResponseWriter, r *http.Request) 
 		Quantity:    payload.Quantity,
 	}
 
+	// Create a context with a 5-second timeout deadline.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = h.models.Product.Insert(ctx, &product)
+	if err != nil {
+		if errors.Is(err, data.ErrRecordNotFound) {
+			h.notFoundResponse(w, r, err)
+		} else {
+			h.serverErrorResponse(w, r, err)
+		}
+
+		return
+	}
+
 	// Write successful response if all succeeds.
-	_ = h.writeJSON(w, http.StatusCreated, envelope{"product": product}, nil)
+	h.writeJSON(w, r, http.StatusCreated, envelope{"product": product}, nil)
 }

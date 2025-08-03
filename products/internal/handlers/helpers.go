@@ -86,21 +86,24 @@ func (h *Handlers) readJSON(w http.ResponseWriter, r *http.Request, dst any) err
 
 func (h *Handlers) writeJSON(
 	w http.ResponseWriter,
+	r *http.Request,
 	status int,
 	data envelope,
 	headers http.Header,
-) error {
+) {
 	js, err := json.MarshalIndent(data, "", "\t")
-	if err != nil {
-		return err
+	if err == nil {
+		js = append(js, '\n')
+		maps.Copy(w.Header(), headers)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, err = w.Write(js)
 	}
 
-	js = append(js, '\n')
-	maps.Copy(w.Header(), headers)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_, err = w.Write(js)
-
-	return err
+	if err != nil {
+		// This indicates error in our code and should never happen. If it does, we log
+		// it and send clients a plain 500 Internal Server Error.
+		h.logError(r, err)
+		w.WriteHeader(500)
+	}
 }

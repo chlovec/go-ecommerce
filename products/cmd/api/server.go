@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -28,7 +29,7 @@ type Server struct {
 	logger     *slog.Logger
 }
 
-func newServer(cfg config, logger *slog.Logger) APIServer {
+func newServer(cfg config, logger *slog.Logger, db *sql.DB) APIServer {
 	addr := fmt.Sprintf(":%d", cfg.port)
 	return &Server{
 		addr:   addr,
@@ -36,7 +37,7 @@ func newServer(cfg config, logger *slog.Logger) APIServer {
 		logger: logger,
 		httpServer: &http.Server{
 			Addr:         addr,
-			Handler:      routes(logger),
+			Handler:      routes(logger, db),
 			IdleTimeout:  cfg.idleTimeout,
 			ReadTimeout:  cfg.readTimeout,
 			WriteTimeout: cfg.WriteTimeout,

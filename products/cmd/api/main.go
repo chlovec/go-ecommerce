@@ -28,7 +28,7 @@ func run(
 	args []string,
 	logger *slog.Logger,
 	sqlOpen func(driverName string, dataSourceName string) (*sql.DB, error),
-	newServer func(cfg config, logger *slog.Logger) APIServer,
+	newServer func(cfg config, logger *slog.Logger, db *sql.DB) APIServer,
 ) int {
 
 	// Load config
@@ -54,7 +54,7 @@ func run(
 	logger.Info("database connection pool established")
 
 	// Instantiate a new server and start listening and responding to requests.
-	svr := newServer(cfg, logger)
+	svr := newServer(cfg, logger, db)
 	err = svr.Serve()
 	if err != nil {
 		logger.Error(err.Error())
@@ -109,10 +109,10 @@ func openDB(
 	return db, nil
 }
 
-func routes(logger *slog.Logger) http.Handler {
+func routes(logger *slog.Logger, db *sql.DB) http.Handler {
 	router := httprouter.New()
 
-	h := handlers.NewHandlers(logger)
+	h := handlers.NewHandlers(logger, db)
 
 	// Products request routing
 	router.HandlerFunc(http.MethodPost, "/v1/api/products", h.CreateProductHandler)

@@ -43,7 +43,7 @@ func TestRun(t *testing.T) {
 		}
 
 		mockAPIServer := new(MockAPIServer)
-		mockNewServer := func(cfg config, logger *slog.Logger) APIServer {
+		mockNewServer := func(cfg config, logger *slog.Logger, db *sql.DB) APIServer {
 			return mockAPIServer
 		}
 		mockAPIServer.On("Serve").Return(nil)
@@ -70,7 +70,7 @@ func TestRun(t *testing.T) {
 		}
 
 		mockAPIServer := new(MockAPIServer)
-		mockNewServer := func(cfg config, logger *slog.Logger) APIServer {
+		mockNewServer := func(cfg config, logger *slog.Logger, db *sql.DB) APIServer {
 			return mockAPIServer
 		}
 		exitCode := run(invalidArgs, logger, mockSQLOpen, mockNewServer)
@@ -92,7 +92,7 @@ func TestRun(t *testing.T) {
 		}
 
 		mockAPIServer := new(MockAPIServer)
-		mockNewServer := func(cfg config, logger *slog.Logger) APIServer {
+		mockNewServer := func(cfg config, logger *slog.Logger, db *sql.DB) APIServer {
 			return mockAPIServer
 		}
 		exitCode := run(args, logger, mockSQLOpen, mockNewServer)
@@ -115,7 +115,7 @@ func TestRun(t *testing.T) {
 		}
 
 		mockAPIServer := new(MockAPIServer)
-		mockNewServer := func(cfg config, logger *slog.Logger) APIServer {
+		mockNewServer := func(cfg config, logger *slog.Logger, db *sql.DB) APIServer {
 			return mockAPIServer
 		}
 		mockAPIServer.On("Serve").Return(errors.New("server error"))
