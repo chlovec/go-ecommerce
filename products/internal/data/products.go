@@ -3,7 +3,11 @@ package data
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type Product struct {
@@ -22,5 +26,32 @@ type ProductModel struct {
 }
 
 func (p *ProductModel) Insert(ctx context.Context, product *Product) error {
+	query := `
+		INSERT INTO products (name, category_id, description, price, quantity)
+		VALES($1, $2, $3, $4, $5)
+		RETURNING id, created_at, version
+	`
+	args := []any{
+		product.Name,
+		product.CategoryID,
+		product.Description,
+		product.Price,
+		product.Quantity,
+	}
+	err := p.DB.QueryRowContext(ctx, query, args...).
+		Scan(&product.ID, &product.CreatedAt, &product.Version)
+
+	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23503" {
+			return fmt.Errorf(
+				"category_id %d does not exist: %w",
+				product.CategoryID,
+				ErrInvalidCategoryId,
+			)
+		}
+		return err
+	}
+
 	return nil
 }

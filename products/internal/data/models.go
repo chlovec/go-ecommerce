@@ -2,13 +2,13 @@ package data
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 )
 
 var (
-	ErrRecordNotFound = errors.New("record not found")
-	ErrEditConflict   = errors.New("edit conflict")
+	ErrRecordNotFound    = errors.New("record not found")
+	ErrEditConflict      = errors.New("edit conflict")
+	ErrInvalidCategoryId = errors.New("invalid category_id")
 )
 
 type ProductRepository interface {
@@ -17,10 +17,4 @@ type ProductRepository interface {
 
 type Models struct {
 	Product ProductRepository
-}
-
-func NewModels(db *sql.DB) Models {
-	return Models{
-		Product: &ProductModel{DB: db},
-	}
 }

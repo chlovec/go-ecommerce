@@ -18,6 +18,8 @@ func NewHandlers(logger *slog.Logger, db *sql.DB) *Handlers {
 	return &Handlers{
 		logger:    logger,
 		validator: validator.New(),
-		models:    data.NewModels(db),
+		models: data.Models{
+			Product: &data.ProductModel{DB: db},
+		},
 	}
 }
