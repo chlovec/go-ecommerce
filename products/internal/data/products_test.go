@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
@@ -31,6 +32,12 @@ func TestProductModel_Insert(t *testing.T) {
 		Quantity:    5,
 	}
 
+	var expectedQuery = regexp.QuoteMeta(`
+		INSERT INTO products (name, category_id, description, price, quantity)
+		VALUES($1, $2, $3, $4, $5)
+		RETURNING id, created_at, version
+	`)
+
 	t.Run("success", func(t *testing.T) {
 		productInsert := Product{
 			Name:        "Test Product",
@@ -41,7 +48,7 @@ func TestProductModel_Insert(t *testing.T) {
 		}
 
 		createdAt := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
-		mock.ExpectQuery("INSERT INTO products").
+		mock.ExpectQuery(expectedQuery).
 			WithArgs(productInsert.Name, productInsert.CategoryID, productInsert.Description, productInsert.Price, productInsert.Quantity).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "version"}).
 				AddRow(1, createdAt, 1))
@@ -64,7 +71,7 @@ func TestProductModel_Insert(t *testing.T) {
 	})
 
 	t.Run("foreign key violation", func(t *testing.T) {
-		mock.ExpectQuery("INSERT INTO products").
+		mock.ExpectQuery(expectedQuery).
 			WithArgs(product.Name, product.CategoryID, product.Description, product.Price, product.Quantity).
 			WillReturnError(&pq.Error{Code: "23503"})
 
@@ -79,7 +86,7 @@ func TestProductModel_Insert(t *testing.T) {
 
 	t.Run("other error", func(t *testing.T) {
 		dbErr := errors.New("unexpected DB error")
-		mock.ExpectQuery("INSERT INTO products").
+		mock.ExpectQuery(expectedQuery).
 			WithArgs(product.Name, product.CategoryID, product.Description, product.Price, product.Quantity).
 			WillReturnError(dbErr)
 

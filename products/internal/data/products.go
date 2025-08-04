@@ -28,7 +28,7 @@ type ProductModel struct {
 func (p *ProductModel) Insert(ctx context.Context, product *Product) error {
 	query := `
 		INSERT INTO products (name, category_id, description, price, quantity)
-		VALES($1, $2, $3, $4, $5)
+		VALUES($1, $2, $3, $4, $5)
 		RETURNING id, created_at, version
 	`
 	args := []any{
