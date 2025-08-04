@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -52,4 +53,30 @@ func (h *Handlers) CreateCategoryHandler(w http.ResponseWriter, r *http.Request)
 
 	// Write successful response if all succeeds.
 	h.writeJSON(w, r, http.StatusCreated, envelope{"category": category}, nil)
+}
+
+// POST v1/api/categories
+func (h *Handlers) GetCategoryByID(w http.ResponseWriter, r *http.Request) {
+	// Read and validate id param.
+	id, err := h.readIDParam(r)
+	if err != nil || id < 1 {
+		h.badRequestResponse(w, r, err)
+		return
+	}
+
+	// Create a context with a 5-second timeout deadline.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	category, err := h.models.Category.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, data.ErrRecordNotFound) {
+			h.notFoundResponse(w, r, err)
+		} else {
+			h.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	env := envelope{"category": category}
+	h.writeJSON(w, r, http.StatusOK, env, nil)
 }

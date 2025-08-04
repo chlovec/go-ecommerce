@@ -28,6 +28,12 @@ func (m *MockCategoryRepository) Insert(ctx context.Context, category *data.Cate
 	return args.Error(0)
 }
 
+func (m *MockCategoryRepository) GetByID(ctx context.Context, id int64) (*data.Category, error) {
+	args := m.Called(ctx, id)
+	category, _ := args.Get(0).(*data.Category) // safe type assertion
+	return category, args.Error(1)
+}
+
 func setupCategoryHandlerTest(
 	t *testing.T,
 	w io.Writer,

@@ -119,6 +119,7 @@ func routes(logger *slog.Logger, db *sql.DB) http.Handler {
 
 	// Categories request routing
 	router.HandlerFunc(http.MethodPost, "/v1/api/categories", h.CreateCategoryHandler)
+	router.HandlerFunc(http.MethodGet, "/v1/api/categories/:id", h.GetCategoryByID)
 
 	return router
 }

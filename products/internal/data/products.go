@@ -42,8 +42,11 @@ func (p *ProductModel) Insert(ctx context.Context, product *Product) error {
 		product.Price,
 		product.Quantity,
 	}
-	err := p.DB.QueryRowContext(ctx, query, args...).
-		Scan(&product.ID, &product.CreatedAt, &product.Version)
+	err := p.DB.QueryRowContext(ctx, query, args...).Scan(
+		&product.ID,
+		&product.CreatedAt,
+		&product.Version,
+	)
 
 	if err != nil {
 		var pqErr *pq.Error
