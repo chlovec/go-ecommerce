@@ -19,7 +19,8 @@ func NewHandlers(logger *slog.Logger, db *sql.DB) *Handlers {
 		logger:    logger,
 		validator: validator.New(),
 		models: data.Models{
-			Product: &data.ProductModel{DB: db},
+			Product:  &data.ProductModel{DB: db},
+			Category: &data.CategoryModel{DB: db},
 		},
 	}
 }

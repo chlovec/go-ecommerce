@@ -25,6 +25,10 @@ type ProductModel struct {
 	DB *sql.DB
 }
 
+type ProductRepository interface {
+	Insert(ctx context.Context, product *Product) error
+}
+
 func (p *ProductModel) Insert(ctx context.Context, product *Product) error {
 	query := `
 		INSERT INTO products (name, category_id, description, price, quantity)
