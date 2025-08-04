@@ -117,5 +117,8 @@ func routes(logger *slog.Logger, db *sql.DB) http.Handler {
 	// Products request routing
 	router.HandlerFunc(http.MethodPost, "/v1/api/products", h.CreateProductHandler)
 
+	// Categories request routing
+	router.HandlerFunc(http.MethodPost, "/v1/api/categories", h.CreateCategoryHandler)
+
 	return router
 }

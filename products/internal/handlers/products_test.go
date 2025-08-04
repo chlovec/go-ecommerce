@@ -109,6 +109,52 @@ func TestCreateProductHandler(t *testing.T) {
 		buf.Reset()
 	})
 
+	t.Run("create product successfully with only required fields", func(t *testing.T) {
+		input := `{
+			"name": "Test Product",
+			"category_id": 1
+		}`
+
+		mockProduct := data.Product{
+			Name:       "Test Product",
+			CategoryID: 1,
+		}
+		rw, req, h, mockProductRepo := setupProductHandlerTest(t, &buf, strings.NewReader(input))
+		mockProductRepo.On("Insert", mock.Anything, &mockProduct).
+			Run(func(args mock.Arguments) {
+				p := args.Get(1).(*data.Product)
+				p.ID = 123
+				p.Version = 1
+				p.CreatedAt = time.Now()
+			}).
+			Return(nil)
+
+		h.CreateProductHandler(rw, req)
+		res := rw.Result()
+		defer res.Body.Close()
+
+		body, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expectedResponse := `{
+			"product": {
+				"id": 123,
+				"name": "Test Product",
+				"category_id": 1,
+				"description": "",
+				"price": 0,
+				"quantity": 0,
+				"version": 1
+			}
+		}`
+
+		assert.Equal(t, http.StatusCreated, res.StatusCode)
+		assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
+		assert.JSONEq(t, expectedResponse, string(body))
+		assert.Contains(t, buf.String(), "")
+		buf.Reset()
+	})
+
 	t.Run("request body contains unknown field", func(t *testing.T) {
 		payload := `{
 			"id": 23,

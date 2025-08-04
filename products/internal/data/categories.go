@@ -28,10 +28,7 @@ func (p *CategoryModel) Insert(ctx context.Context, category *Category) error {
 		VALUES($1, $2)
 		RETURNING id, created_at, version
 	`
-	args := []any{
-		category.Name,
-		category.Description,
-	}
+	args := []any{category.Name, category.Description}
 	return p.DB.QueryRowContext(ctx, query, args...).
 		Scan(&category.ID, &category.CreatedAt, &category.Version)
 }
