@@ -37,9 +37,8 @@ func (h *Handlers) CreateProductHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Save product to db. If there is an error and is because the category was not found,
-	// respond with 404 Not Found. For any other error, respond with 500 Internal Server
-	// Error.
+	// Save product to db. If category id does not exist, send 400 Bad Request to the
+	// client. For any other error, respond send 500 Internal Server Error.
 	product := data.Product{
 		Name:        payload.Name,
 		CategoryID:  payload.CategoryID,
@@ -54,8 +53,8 @@ func (h *Handlers) CreateProductHandler(w http.ResponseWriter, r *http.Request) 
 
 	err = h.models.Product.Insert(ctx, &product)
 	if err != nil {
-		if errors.Is(err, data.ErrRecordNotFound) {
-			h.notFoundResponse(w, r, err)
+		if errors.Is(err, data.ErrInvalidCategoryId) {
+			h.badRequestResponse(w, r, err)
 		} else {
 			h.serverErrorResponse(w, r, err)
 		}

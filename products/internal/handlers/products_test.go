@@ -208,13 +208,14 @@ func TestCreateProductHandler(t *testing.T) {
 
 	t.Run("insert query not found error", func(t *testing.T) {
 		rw, req, h, mockProductRepo := setupProductHandlerTest(t, &buf, strings.NewReader(payload))
-		mockProductRepo.On("Insert", mock.Anything, &productToInsert).Return(data.ErrRecordNotFound)
+		mockProductRepo.On("Insert", mock.Anything, &productToInsert).
+			Return(data.ErrInvalidCategoryId)
 
 		h.CreateProductHandler(rw, req)
 		res := rw.Result()
 		defer res.Body.Close()
 
-		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 		assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
 
 		body, err := io.ReadAll(res.Body)
@@ -222,12 +223,12 @@ func TestCreateProductHandler(t *testing.T) {
 
 		assert.JSONEq(
 			t,
-			`{"error":"the requested resource could not be found"}`,
+			`{"error":"invalid category_id"}`,
 			string(body),
 		)
 
 		// Assert Log
-		logMsg := "level=ERROR msg=\"record not found\" method=POST uri=/products\n"
+		logMsg := "level=ERROR msg=\"invalid category_id\" method=POST uri=/products\n"
 		assert.Contains(t, buf.String(), logMsg)
 		buf.Reset()
 	})

@@ -31,10 +31,10 @@ func (h *Handlers) failedValidationResponse(
 
 // The notFoundResponse() method will be used to send a 404 Not Found status code and
 // JSON response to the client.
-func (h *Handlers) notFoundResponse(w http.ResponseWriter, r *http.Request, err error) {
-	message := "the requested resource could not be found"
-	h.errorResponse(w, r, http.StatusNotFound, message, err)
-}
+// func (h *Handlers) notFoundResponse(w http.ResponseWriter, r *http.Request, err error) {
+// 	message := "the requested resource could not be found"
+// 	h.errorResponse(w, r, http.StatusNotFound, message, err)
+// }
 
 // The serverErrorResponse() method will be used when our handlers encounter an
 // unexpected problem at runtime. It logs the detailed error message, then uses the
