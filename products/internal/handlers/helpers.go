@@ -113,9 +113,10 @@ func (h *Handlers) writeJSON(
 
 func (h *Handlers) readIDParam(r *http.Request) (int64, error) {
 	params := httprouter.ParamsFromContext(r.Context())
-	id, err := strconv.ParseInt(params.ByName("id"), 10, 64)
+	idString := params.ByName("id")
+	id, err := strconv.ParseInt(idString, 10, 64)
 	if err != nil {
-		return 0, errors.New("invalid id parameter")
+		return 0, fmt.Errorf("%w: %s", ErrInvalidIDParam, idString)
 	}
 
 	return id, nil

@@ -8,6 +8,8 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+var ErrInvalidIDParam = errors.New("invalid id parameter")
+
 var fieldJSONMap = map[string]string{
 	"Name":        "name",
 	"CategoryID":  "category_id",

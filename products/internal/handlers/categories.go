@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -60,6 +61,9 @@ func (h *Handlers) GetCategoryByID(w http.ResponseWriter, r *http.Request) {
 	// Read and validate id param.
 	id, err := h.readIDParam(r)
 	if err != nil || id < 1 {
+		if id < 1 && err == nil {
+			err = fmt.Errorf("%w: %d", ErrInvalidIDParam, id)
+		}
 		h.badRequestResponse(w, r, err)
 		return
 	}
