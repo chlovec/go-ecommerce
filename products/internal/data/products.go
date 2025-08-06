@@ -50,7 +50,7 @@ func (p *ProductModel) Insert(ctx context.Context, product *Product) error {
 
 	if err != nil {
 		var pqErr *pq.Error
-		if errors.As(err, &pqErr) && pqErr.Code == "23503" {
+		if errors.As(err, &pqErr) && pqErr.Code == ErrForeignKeyViolation {
 			return fmt.Errorf(
 				"category_id %d does not exist: %w",
 				product.CategoryID,

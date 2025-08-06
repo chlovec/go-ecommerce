@@ -24,28 +24,28 @@ type CategoryRepository interface {
 	GetByID(ctx context.Context, id int64) (*Category, error)
 }
 
-func (p *CategoryModel) Insert(ctx context.Context, category *Category) error {
+func (c *CategoryModel) Insert(ctx context.Context, category *Category) error {
 	query := `
 		INSERT INTO categories(name, description)
 		VALUES($1, $2)
 		RETURNING id, created_at, version
 	`
 	args := []any{category.Name, category.Description}
-	return p.DB.QueryRowContext(ctx, query, args...).Scan(
+	return c.DB.QueryRowContext(ctx, query, args...).Scan(
 		&category.ID,
 		&category.CreatedAt,
 		&category.Version,
 	)
 }
 
-func (p *CategoryModel) GetByID(ctx context.Context, id int64) (*Category, error) {
+func (c *CategoryModel) GetByID(ctx context.Context, id int64) (*Category, error) {
 	query := `
 		SELECT id, name, description, created_at, version
 		FROM categories
 		WHERE id = $1
 	`
 	var category Category
-	err := p.DB.QueryRowContext(ctx, query, id).Scan(
+	err := c.DB.QueryRowContext(ctx, query, id).Scan(
 		&category.ID,
 		&category.Name,
 		&category.Description,
@@ -63,4 +63,53 @@ func (p *CategoryModel) GetByID(ctx context.Context, id int64) (*Category, error
 	}
 
 	return &category, nil
+}
+
+func (c *CategoryModel) Update(ctx context.Context, category *Category) error {
+	query := `
+		UPDATE categories 
+		SET name = $1, description = $2, version = version + 1
+		WHERE id = $3 AND version = $4
+		RETURNING version
+	`
+
+	// Version in the where clause is used for optimistic concurrency. if there is an
+	// edit conflict, it will result in sql.ErrNoRows
+	args := []any{category.Name, category.Description, category.ID, category.Version}
+	err := c.DB.QueryRowContext(ctx, query, args...).Scan(&category.Version)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Method for deleting a specific movie record.
+func (c *CategoryModel) Delete(ctx context.Context, id int64) error {
+	query := `DELETE FROM categories WHERE id = $1`
+
+	// Execute SQL query using the Exec() method, passing in the id variable as
+	// the value for the placeholder parameter. The Exec() method returns a sql.Result
+	// value
+	result, err := c.DB.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+
+	return nil
 }
