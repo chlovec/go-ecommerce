@@ -1,3 +1,11 @@
 {
-  "cSpell.words": ["chlovec", "ecommerce"]
+  "cSpell.words": [
+    "chlovec",
+    "ecommerce",
+    "omitzero",
+    "plainto",
+    "Safelist",
+    "tsquery",
+    "tsvector"
+  ]
 }

@@ -8,10 +8,14 @@
     "golangci",
     "golines",
     "httprouter",
+    "plainto",
     "psql",
     "staticcheck",
     "staticheck",
     "stretchr",
-    "timestampz"
+    "timestampz",
+    "totalpages",
+    "tsquery",
+    "tsvector"
   ]
 }

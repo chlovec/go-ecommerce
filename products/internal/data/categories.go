@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -112,4 +113,63 @@ func (c *CategoryModel) Delete(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+func (c *CategoryModel) GetAll(
+	ctx context.Context,
+	name string,
+	filters Filters,
+) ([]*Category, Metadata, error) {
+	query := fmt.Sprintf(`
+        SELECT count(*) OVER(), id, name, description, created_at, version
+        FROM categories
+        WHERE (to_tsvector('simple', name) @@ plainto_tsquery('simple', $1) OR $1 = '')
+        ORDER BY%s id ASC
+		Limit $2 OFFSET $3`,
+		filters.sortColumnWithDirection(),
+	)
+
+	args := []any{name, filters.limit(), filters.offset()}
+
+	rows, err := c.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+	defer rows.Close()
+
+	categories := []*Category{}
+	totalRecords := 0
+
+	for rows.Next() {
+		// Initialize an empty Movie struct to hold the data for an individual movie.
+		var category Category
+
+		// Scan the values from the row into the Movie struct. Again, note that we're
+		// using the pq.Array() adapter on the genres field here.
+		err := rows.Scan(
+			&totalRecords,
+			&category.ID,
+			&category.Name,
+			&category.Description,
+			&category.CreatedAt,
+			&category.Version,
+		)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+
+		// Add the Movie struct to the slice.
+		categories = append(categories, &category)
+	}
+
+	// After the rows.Next() loop has finished, call rows.Err() to retrieve any error
+	// that was encountered during the iteration.
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	// If everything went OK, then return the slice of movies.
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+
+	return categories, metadata, nil
 }
