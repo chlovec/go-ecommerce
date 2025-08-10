@@ -7,7 +7,9 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -120,4 +122,69 @@ func (h *Handlers) readIDParam(r *http.Request) (int64, error) {
 	}
 
 	return id, nil
+}
+
+// The readCSV() helper reads a string value from the query string and then splits it
+// into a slice on the comma character. If no matching key could be found, it returns
+// the provided default value.
+func (h *Handlers) readCSV(qs url.Values, key string, defaultValue []string) []string {
+	// Extract the value from the query string.
+	csv := qs.Get(key)
+
+	// If no key exists (or the value is empty) then return the default value.
+	if csv == "" {
+		return defaultValue
+	}
+
+	// Otherwise parse the value into a []string slice and return it.
+	return strings.Split(csv, ",")
+}
+
+// The readInt() helper reads a string value from the query string and converts it to an
+// integer before returning. If no matching key could be found it returns the provided
+// default value. If the value couldn't be converted to an integer, then we record an
+// error message in the provided Validator instance.
+func (h *Handlers) readInt(
+	qs url.Values,
+	key string,
+	defaultValue int,
+	valErrs map[string]string,
+) int {
+	// Extract the value from the query string.
+	s := qs.Get(key)
+
+	// If no key exists (or the value is empty) then return the default value.
+	if s == "" {
+		return defaultValue
+	}
+
+	// Try to convert the value to an int. If this fails, add an error message to the
+	// validator instance and return the default value.
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		valErrs[key] = "must be an integer value"
+		return defaultValue
+	}
+
+	// Otherwise, return the converted integer value.
+	return i
+}
+
+// parseSortParams() method reads sort parameters from the query string and validates
+// the values against a list. Any validation error is added to valErrs map
+func (h *Handlers) validateSortFields(
+	sortFields []string,
+	safeList map[string]struct{},
+	valErrs map[string]string,
+) {
+	if len(sortFields) > len(safeList) {
+		valErrs["sort"] = "contains too many fields"
+		return
+	}
+
+	for _, key := range sortFields {
+		if _, ok := safeList[key]; !ok {
+			valErrs[key] = "is not a valid sort field"
+		}
+	}
 }

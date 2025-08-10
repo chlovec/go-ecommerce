@@ -8,6 +8,7 @@
     "golangci",
     "golines",
     "httprouter",
+    "omitzero",
     "plainto",
     "psql",
     "staticcheck",

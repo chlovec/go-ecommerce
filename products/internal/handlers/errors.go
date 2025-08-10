@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -136,4 +137,14 @@ func getFieldErrorMessage(fe validator.FieldError) string {
 	default:
 		return fmt.Sprintf("failed validation: %s", fe.Error())
 	}
+}
+
+func createErr(errMap map[string]string) error {
+	var msgs []string
+	for field, msg := range errMap {
+		msgs = append(msgs, fmt.Sprintf("%s %s", field, msg))
+	}
+	err := errors.New(strings.Join(msgs, "; "))
+
+	return err
 }

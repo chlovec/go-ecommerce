@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type Category struct {
@@ -91,7 +93,7 @@ func (c *CategoryModel) Update(ctx context.Context, category *Category) error {
 	return nil
 }
 
-// Method for deleting a specific movie record.
+// Method for deleting a specific category record.
 func (c *CategoryModel) Delete(ctx context.Context, id int64) error {
 	query := `DELETE FROM categories WHERE id = $1`
 
@@ -117,19 +119,28 @@ func (c *CategoryModel) Delete(ctx context.Context, id int64) error {
 
 func (c *CategoryModel) GetAll(
 	ctx context.Context,
-	name string,
 	filters Filters,
 ) ([]*Category, Metadata, error) {
 	query := fmt.Sprintf(`
-        SELECT count(*) OVER(), id, name, description, created_at, version
-        FROM categories
-        WHERE (to_tsvector('simple', name) @@ plainto_tsquery('simple', $1) OR $1 = '')
-        ORDER BY%s id ASC
-		Limit $2 OFFSET $3`,
-		filters.sortColumnWithDirection(),
-	)
+		SELECT id, name, description, created_at, version
+		FROM categories
+		WHERE
+			(cardinality($1::int[]) = 0 OR id = ANY($1))
+			AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
+			AND ($3::timestamp IS NULL OR created_at >= $3)
+			AND ($4::timestamp IS NULL OR created_at <= $4)
+		ORDER BY %s
+		Limit $5 OFFSET $6`,
+		filters.sortColumns())
 
-	args := []any{name, filters.limit(), filters.offset()}
+	args := []any{
+		pq.Array(filters.IDs),
+		filters.Name,
+		filters.DateFrom,
+		filters.DateTo,
+		filters.PageSize,
+		filters.offset(),
+	}
 
 	rows, err := c.DB.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -141,11 +152,10 @@ func (c *CategoryModel) GetAll(
 	totalRecords := 0
 
 	for rows.Next() {
-		// Initialize an empty Movie struct to hold the data for an individual movie.
+		// Initialize an empty category struct to hold the data for an individual category.
 		var category Category
 
-		// Scan the values from the row into the Movie struct. Again, note that we're
-		// using the pq.Array() adapter on the genres field here.
+		// Scan the values from the row into the categories struct.
 		err := rows.Scan(
 			&totalRecords,
 			&category.ID,
@@ -158,7 +168,7 @@ func (c *CategoryModel) GetAll(
 			return nil, Metadata{}, err
 		}
 
-		// Add the Movie struct to the slice.
+		// Add the category struct to the slice.
 		categories = append(categories, &category)
 	}
 
@@ -168,7 +178,7 @@ func (c *CategoryModel) GetAll(
 		return nil, Metadata{}, err
 	}
 
-	// If everything went OK, then return the slice of movies.
+	// If everything went OK, then return the slice of categories.
 	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
 
 	return categories, metadata, nil

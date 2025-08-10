@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -334,7 +335,7 @@ func TestCategoryModel_Delete(t *testing.T) {
 	})
 }
 
-func TestCategoryModel_GetAll(t *testing.T) {
+func TestCategoryModel_List(t *testing.T) {
 	t.Parallel()
 
 	db, sqlMock, err := sqlmock.New()
@@ -347,24 +348,29 @@ func TestCategoryModel_GetAll(t *testing.T) {
 	filters := Filters{
 		Page:     1,
 		PageSize: 20,
-		Sort:     "",
 	}
 
 	t.Run("fetch all categories successfully", func(t *testing.T) {
 		createdAt := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
 		mockQuery := regexp.QuoteMeta(`
-			SELECT count(*) OVER(), id, name, description, created_at, version
+			SELECT id, name, description, created_at, version
 			FROM categories
-			WHERE (to_tsvector('simple', name) @@ plainto_tsquery('simple', $1) OR $1 = '')
+			WHERE
+				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
+				AND ($3::timestamp IS NULL OR created_at >= $3)
+				AND ($4::timestamp IS NULL OR created_at <= $4)
 			ORDER BY id ASC
-			Limit $2 OFFSET $3`,
+			Limit $5 OFFSET $6`,
 		)
 		mockRow := sqlmock.NewRows(
 			[]string{"total_pages", "id", "name", "description", "created_at", "version"},
 		).AddRow(10, 121, "Test Category", "A test category", createdAt, 1)
-		sqlMock.ExpectQuery(mockQuery).WithArgs("", 20, 0).WillReturnRows(mockRow)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(
+			nil, "", nil, nil, 20, 0,
+		).WillReturnRows(mockRow)
 
-		categories, metadata, err := categoryModel.GetAll(ctx, "", filters)
+		categories, metadata, err := categoryModel.GetAll(ctx, filters)
 
 		testCategory := Category{
 			ID:          121,
@@ -386,40 +392,51 @@ func TestCategoryModel_GetAll(t *testing.T) {
 		assert.Equal(t, expectedMetadata, metadata)
 	})
 
-	t.Run("filter and sort categories by name desc", func(t *testing.T) {
-		currentFilters := Filters{
-			Page:     1,
-			PageSize: 20,
-			Sort:     "-name",
+	t.Run("fetch all categories with filters successfully", func(t *testing.T) {
+		createdAt1 := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
+		createdAt2 := time.Date(2025, time.June, 25, 8, 0, 0, 0, time.UTC)
+		mockFilters := Filters{
+			IDs:      []int64{121, 125, 126},
+			Name:     "test",
+			DateFrom: &createdAt1,
+			DateTo:   &createdAt2,
+			Sorts:    []string{"created_at", "name", "-id"},
+			Page:     3,
+			PageSize: 100,
 		}
-		createdAt := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
 		mockQuery := regexp.QuoteMeta(`
-			SELECT count(*) OVER(), id, name, description, created_at, version
+			SELECT id, name, description, created_at, version
 			FROM categories
-			WHERE (to_tsvector('simple', name) @@ plainto_tsquery('simple', $1) OR $1 = '')
-			ORDER BY name DESC, id ASC
-			Limit $2 OFFSET $3`,
+			WHERE
+				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
+				AND ($3::timestamp IS NULL OR created_at >= $3)
+				AND ($4::timestamp IS NULL OR created_at <= $4)
+			ORDER BY created_at ASC, name ASC, id DESC
+			Limit $5 OFFSET $6`,
 		)
 		mockRow := sqlmock.NewRows(
 			[]string{"total_pages", "id", "name", "description", "created_at", "version"},
-		).AddRow(1003, 121, "Test Category", "A test category", createdAt, 1)
-		sqlMock.ExpectQuery(mockQuery).WithArgs("test", 20, 0).WillReturnRows(mockRow)
+		).AddRow(68_028_108, 121, "Test Category", "A test category", createdAt1, 1)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(
+			pq.Array([]int64{121, 125, 126}), "test", createdAt1, createdAt2, 100, 200,
+		).WillReturnRows(mockRow)
 
-		categories, metadata, err := categoryModel.GetAll(ctx, "test", currentFilters)
+		categories, metadata, err := categoryModel.GetAll(ctx, mockFilters)
 
 		testCategory := Category{
 			ID:          121,
 			Name:        "Test Category",
 			Description: "A test category",
-			CreatedAt:   createdAt,
+			CreatedAt:   createdAt1,
 			Version:     1,
 		}
 		expectedMetadata := Metadata{
-			CurrentPage:  1,
-			PageSize:     20,
+			CurrentPage:  3,
+			PageSize:     100,
 			FirstPage:    1,
-			LastPage:     51,
-			TotalRecords: 1003,
+			LastPage:     680282,
+			TotalRecords: 68_028_108,
 		}
 		expectedCategories := []*Category{&testCategory}
 		assert.NoError(t, err)
@@ -427,64 +444,75 @@ func TestCategoryModel_GetAll(t *testing.T) {
 		assert.Equal(t, expectedMetadata, metadata)
 	})
 
-	t.Run("filter and sort categories by name asc", func(t *testing.T) {
-		currentFilters := Filters{
-			Page:     1,
-			PageSize: 20,
-			Sort:     "name",
-		}
+	t.Run("no records", func(t *testing.T) {
 		mockQuery := regexp.QuoteMeta(`
-			SELECT count(*) OVER(), id, name, description, created_at, version
+			SELECT id, name, description, created_at, version
 			FROM categories
-			WHERE (to_tsvector('simple', name) @@ plainto_tsquery('simple', $1) OR $1 = '')
-			ORDER BY name ASC, id ASC
-			Limit $2 OFFSET $3`,
+			WHERE
+				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
+				AND ($3::timestamp IS NULL OR created_at >= $3)
+				AND ($4::timestamp IS NULL OR created_at <= $4)
+			ORDER BY id ASC
+			Limit $5 OFFSET $6`,
 		)
 		mockRow := sqlmock.NewRows(
 			[]string{"total_pages", "id", "name", "description", "created_at", "version"},
 		)
-		sqlMock.ExpectQuery(mockQuery).WithArgs("test", 20, 0).WillReturnRows(mockRow)
-		categories, metadata, err := categoryModel.GetAll(ctx, "test", currentFilters)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(
+			nil, "", nil, nil, 20, 0,
+		).WillReturnRows(mockRow)
+
+		categories, metadata, err := categoryModel.GetAll(ctx, filters)
+
 		assert.NoError(t, err)
 		assert.Equal(t, []*Category{}, categories)
 		assert.Equal(t, Metadata{}, metadata)
 	})
 
-	t.Run("error executing query", func(t *testing.T) {
-		mockQuery := regexp.QuoteMeta(
-			`SELECT count(*) OVER(), id, name, description, created_at, version
+	t.Run("execute query error", func(t *testing.T) {
+		mockQuery := regexp.QuoteMeta(`
+			SELECT id, name, description, created_at, version
 			FROM categories
-			WHERE (to_tsvector('simple', name) @@ plainto_tsquery('simple', $1) OR $1 = '')
+			WHERE
+				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
+				AND ($3::timestamp IS NULL OR created_at >= $3)
+				AND ($4::timestamp IS NULL OR created_at <= $4)
 			ORDER BY id ASC
-			Limit $2 OFFSET $3`,
+			Limit $5 OFFSET $6`,
 		)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(
+			nil, "", nil, nil, 20, 0,
+		).WillReturnError(errors.New("execute query error"))
 
-		queryErr := "error executing query"
-		sqlMock.ExpectQuery(mockQuery).WithArgs("test", 20, 0).WillReturnError(
-			errors.New(queryErr),
-		)
-
-		categories, metadata, err := categoryModel.GetAll(ctx, "test", filters)
+		categories, metadata, err := categoryModel.GetAll(ctx, filters)
 		assert.Error(t, err)
-		assert.Equal(t, queryErr, err.Error())
+		assert.Equal(t, "execute query error", err.Error())
 		assert.Nil(t, categories)
 		assert.Equal(t, Metadata{}, metadata)
 	})
 
 	t.Run("scan error", func(t *testing.T) {
-		mockQuery := regexp.QuoteMeta(
-			`SELECT count(*) OVER(), id, name, description, created_at, version
+		mockQuery := regexp.QuoteMeta(`
+			SELECT id, name, description, created_at, version
 			FROM categories
-			WHERE (to_tsvector('simple', name) @@ plainto_tsquery('simple', $1) OR $1 = '')
+			WHERE
+				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
+				AND ($3::timestamp IS NULL OR created_at >= $3)
+				AND ($4::timestamp IS NULL OR created_at <= $4)
 			ORDER BY id ASC
-			Limit $2 OFFSET $3`,
+			Limit $5 OFFSET $6`,
 		)
 		mockRow := sqlmock.NewRows(
 			[]string{"total_pages", "id", "name", "description", "version"},
 		).AddRow(10, 121, "Test Category", "A test category", 1)
-		sqlMock.ExpectQuery(mockQuery).WithArgs("", 20, 0).WillReturnRows(mockRow)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(
+			nil, "", nil, nil, 20, 0,
+		).WillReturnRows(mockRow)
 
-		categories, metadata, err := categoryModel.GetAll(ctx, "", filters)
+		categories, metadata, err := categoryModel.GetAll(ctx, filters)
 		assert.Error(t, err)
 		assert.Equal(t, "sql: expected 5 destination arguments in Scan, not 6", err.Error())
 		assert.Nil(t, categories)
@@ -492,12 +520,16 @@ func TestCategoryModel_GetAll(t *testing.T) {
 	})
 
 	t.Run("row error", func(t *testing.T) {
-		mockQuery := regexp.QuoteMeta(
-			`SELECT count(*) OVER(), id, name, description, created_at, version
+		mockQuery := regexp.QuoteMeta(`
+			SELECT id, name, description, created_at, version
 			FROM categories
-			WHERE (to_tsvector('simple', name) @@ plainto_tsquery('simple', $1) OR $1 = '')
+			WHERE
+				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
+				AND ($3::timestamp IS NULL OR created_at >= $3)
+				AND ($4::timestamp IS NULL OR created_at <= $4)
 			ORDER BY id ASC
-			Limit $2 OFFSET $3`,
+			Limit $5 OFFSET $6`,
 		)
 		mockRow := sqlmock.NewRows(
 			[]string{"count", "id", "name", "description", "created_at", "version"},
@@ -505,11 +537,11 @@ func TestCategoryModel_GetAll(t *testing.T) {
 			AddRow(1, 1, "Test", "Description", "2025-01-01", 1).
 			RowError(0, errors.New("rows iteration error"))
 
-			// Fail on first row
+		sqlMock.ExpectQuery(mockQuery).WithArgs(
+			nil, "", nil, nil, 20, 0,
+		).WillReturnRows(mockRow)
 
-		sqlMock.ExpectQuery(mockQuery).WithArgs("", 20, 0).WillReturnRows(mockRow)
-
-		categories, metadata, err := categoryModel.GetAll(ctx, "", filters)
+		categories, metadata, err := categoryModel.GetAll(ctx, filters)
 		assert.Error(t, err)
 		assert.Equal(t, "rows iteration error", err.Error())
 		assert.Nil(t, categories)
