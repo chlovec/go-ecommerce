@@ -123,10 +123,10 @@ func (c *CategoryModel) GetAll(
 	filters Filters,
 ) ([]*Category, Metadata, error) {
 	query := fmt.Sprintf(`
-		SELECT id, name, description, created_at, version
+		SELECT count(*) OVER(), id, name, description, created_at, version
 		FROM categories
 		WHERE
-			(cardinality($1::int[]) = 0 OR id = ANY($1))
+			(cardinality($1::bigint[]) = 0 OR id = ANY($1))
 			AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
 			AND ($3::timestamp IS NULL OR created_at >= $3)
 			AND ($4::timestamp IS NULL OR created_at <= $4)

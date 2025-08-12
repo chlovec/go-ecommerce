@@ -353,10 +353,10 @@ func TestCategoryModel_List(t *testing.T) {
 	t.Run("fetch all categories successfully", func(t *testing.T) {
 		createdAt := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
 		mockQuery := regexp.QuoteMeta(`
-			SELECT id, name, description, created_at, version
+			SELECT count(*) OVER(), id, name, description, created_at, version
 			FROM categories
 			WHERE
-				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				(cardinality($1::bigint[]) = 0 OR id = ANY($1))
 				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
 				AND ($3::timestamp IS NULL OR created_at >= $3)
 				AND ($4::timestamp IS NULL OR created_at <= $4)
@@ -405,10 +405,10 @@ func TestCategoryModel_List(t *testing.T) {
 			PageSize: 100,
 		}
 		mockQuery := regexp.QuoteMeta(`
-			SELECT id, name, description, created_at, version
+			SELECT count(*) OVER(), id, name, description, created_at, version
 			FROM categories
 			WHERE
-				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				(cardinality($1::bigint[]) = 0 OR id = ANY($1))
 				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
 				AND ($3::timestamp IS NULL OR created_at >= $3)
 				AND ($4::timestamp IS NULL OR created_at <= $4)
@@ -446,10 +446,10 @@ func TestCategoryModel_List(t *testing.T) {
 
 	t.Run("no records", func(t *testing.T) {
 		mockQuery := regexp.QuoteMeta(`
-			SELECT id, name, description, created_at, version
+			SELECT count(*) OVER(), id, name, description, created_at, version
 			FROM categories
 			WHERE
-				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				(cardinality($1::bigint[]) = 0 OR id = ANY($1))
 				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
 				AND ($3::timestamp IS NULL OR created_at >= $3)
 				AND ($4::timestamp IS NULL OR created_at <= $4)
@@ -472,10 +472,10 @@ func TestCategoryModel_List(t *testing.T) {
 
 	t.Run("execute query error", func(t *testing.T) {
 		mockQuery := regexp.QuoteMeta(`
-			SELECT id, name, description, created_at, version
+			SELECT count(*) OVER(), id, name, description, created_at, version
 			FROM categories
 			WHERE
-				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				(cardinality($1::bigint[]) = 0 OR id = ANY($1))
 				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
 				AND ($3::timestamp IS NULL OR created_at >= $3)
 				AND ($4::timestamp IS NULL OR created_at <= $4)
@@ -495,10 +495,10 @@ func TestCategoryModel_List(t *testing.T) {
 
 	t.Run("scan error", func(t *testing.T) {
 		mockQuery := regexp.QuoteMeta(`
-			SELECT id, name, description, created_at, version
+			SELECT count(*) OVER(), id, name, description, created_at, version
 			FROM categories
 			WHERE
-				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				(cardinality($1::bigint[]) = 0 OR id = ANY($1))
 				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
 				AND ($3::timestamp IS NULL OR created_at >= $3)
 				AND ($4::timestamp IS NULL OR created_at <= $4)
@@ -521,10 +521,10 @@ func TestCategoryModel_List(t *testing.T) {
 
 	t.Run("row error", func(t *testing.T) {
 		mockQuery := regexp.QuoteMeta(`
-			SELECT id, name, description, created_at, version
+			SELECT count(*) OVER(), id, name, description, created_at, version
 			FROM categories
 			WHERE
-				(cardinality($1::int[]) = 0 OR id = ANY($1))
+				(cardinality($1::bigint[]) = 0 OR id = ANY($1))
 				AND ($2 = '' OR to_tsvector('simple', name) @@ plainto_tsquery('simple', $2))
 				AND ($3::timestamp IS NULL OR created_at >= $3)
 				AND ($4::timestamp IS NULL OR created_at <= $4)

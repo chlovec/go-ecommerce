@@ -99,7 +99,7 @@ func (h *Handlers) ListCategoryHandler(w http.ResponseWriter, r *http.Request) {
 
 	filters.DateFrom = h.readTime(qs, "date_from", nil, valErrs)
 	filters.DateTo = h.readTime(qs, "date_to", nil, valErrs)
-	filters.IDs = h.readInt64Slice(qs, "id", nil, valErrs)
+	filters.IDs = h.readInt64Slice(qs, "id", []int64{}, valErrs)
 	filters.Name = qs.Get("name")
 	filters.Sorts = h.readCSV(qs, "sort", []string{})
 	filters.Page = h.readInt(qs, "page", 1, valErrs)

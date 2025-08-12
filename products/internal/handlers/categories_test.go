@@ -614,7 +614,7 @@ func TestCategoryHandler_List(t *testing.T) {
 			"/categories",
 		)
 
-		filters := data.Filters{Page: 1, PageSize: 20, Sorts: []string{}}
+		filters := data.Filters{IDs: []int64{}, Page: 1, PageSize: 20, Sorts: []string{}}
 		metadata := data.Metadata{
 			CurrentPage:  1,
 			PageSize:     20,
@@ -914,7 +914,7 @@ func TestCategoryHandler_List(t *testing.T) {
 			"/categories",
 		)
 
-		filters := data.Filters{Page: 1, PageSize: 20, Sorts: []string{}}
+		filters := data.Filters{IDs: []int64{}, Page: 1, PageSize: 20, Sorts: []string{}}
 		mockCategoryRepo.On("GetAll", mock.Anything, filters).
 			Return([]*data.Category{}, data.Metadata{}, errors.New("db error"))
 
