@@ -104,6 +104,7 @@ func TestCreateProductHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusCreated, res.StatusCode)
 		assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
+		assert.Equal(t, "/v1/api/products/123", res.Header.Get("Location"))
 		assert.JSONEq(t, expectedResponse, string(body))
 		assert.Contains(t, buf.String(), "")
 		buf.Reset()

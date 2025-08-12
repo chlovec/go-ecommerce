@@ -25,6 +25,7 @@ type CategoryModel struct {
 type CategoryRepository interface {
 	Insert(ctx context.Context, category *Category) error
 	GetByID(ctx context.Context, id int64) (*Category, error)
+	GetAll(ctx context.Context, filters Filters) ([]*Category, Metadata, error)
 }
 
 func (c *CategoryModel) Insert(ctx context.Context, category *Category) error {

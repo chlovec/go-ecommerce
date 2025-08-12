@@ -53,11 +53,16 @@ func (h *Handlers) CreateCategoryHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Write successful response if all succeeds.
-	h.writeJSON(w, r, http.StatusCreated, envelope{"category": category}, nil)
+	// Create a location header to be included in the http response to
+	// let the client know which url they can find newly created
+	// resource at.
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/api/categories/%d", category.ID))
+	h.writeJSON(w, r, http.StatusCreated, envelope{"category": category}, headers)
 }
 
-// POST v1/api/categories
-func (h *Handlers) GetCategoryByID(w http.ResponseWriter, r *http.Request) {
+// GET v1/api/categories/{id}
+func (h *Handlers) GetCategoryHandler(w http.ResponseWriter, r *http.Request) {
 	// Read and validate id param.
 	id, err := h.readIDParam(r)
 	if err != nil || id < 1 {
@@ -82,5 +87,48 @@ func (h *Handlers) GetCategoryByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	env := envelope{"category": category}
+	h.writeJSON(w, r, http.StatusOK, env, nil)
+}
+
+// GET /v1/api/categories?name={name}&page={page}&page_size={page_size}&sort={sort}
+func (h *Handlers) ListCategoryHandler(w http.ResponseWriter, r *http.Request) {
+	// parse query params
+	var filters data.Filters
+	qs := r.URL.Query()
+	valErrs := map[string]string{}
+
+	filters.DateFrom = h.readTime(qs, "date_from", nil, valErrs)
+	filters.DateTo = h.readTime(qs, "date_to", nil, valErrs)
+	filters.IDs = h.readInt64Slice(qs, "id", nil, valErrs)
+	filters.Name = qs.Get("name")
+	filters.Sorts = h.readCSV(qs, "sort", []string{})
+	filters.Page = h.readInt(qs, "page", 1, valErrs)
+	filters.PageSize = h.readInt(qs, "page_size", 20, valErrs)
+
+	if len(valErrs) > 0 {
+		h.errorResponse(w, r, http.StatusBadRequest, valErrs, createErr(valErrs))
+		return
+	}
+
+	// Validate
+	err := h.validator.Struct(filters)
+	if err != nil {
+		h.failedValidationResponse(w, r, err)
+		return
+	}
+
+	// call CategoryModel.GetAll to fetch categories
+	// pass a context with a 5-second timeout deadline to ensure the query does not run forever.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	categories, metadata, err := h.models.Category.GetAll(ctx, filters)
+	if err != nil {
+		h.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// write response
+	env := envelope{"categories": categories, "metadata": metadata}
 	h.writeJSON(w, r, http.StatusOK, env, nil)
 }

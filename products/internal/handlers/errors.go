@@ -12,11 +12,17 @@ import (
 var ErrInvalidIDParam = errors.New("invalid id parameter")
 
 var fieldJSONMap = map[string]string{
-	"Name":        "name",
+	"CreatedAt":   "created_at",
 	"CategoryID":  "category_id",
 	"Description": "description",
+	"ID":          "id",
+	"Name":        "name",
+	"Page":        "page",
+	"PageSize":    "page_size",
 	"Price":       "price",
 	"Quantity":    "quantity",
+	"Version":     "version",
+	"Sorts":       "sort",
 }
 
 func (h *Handlers) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) {

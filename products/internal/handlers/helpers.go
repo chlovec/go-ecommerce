@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -162,7 +163,7 @@ func (h *Handlers) readInt(
 	// validator instance and return the default value.
 	i, err := strconv.Atoi(s)
 	if err != nil {
-		valErrs[key] = "must be an integer value"
+		valErrs[key] = fmt.Sprintf("must be an integer value: %s", s)
 		return defaultValue
 	}
 
@@ -170,21 +171,47 @@ func (h *Handlers) readInt(
 	return i
 }
 
-// parseSortParams() method reads sort parameters from the query string and validates
-// the values against a list. Any validation error is added to valErrs map
-func (h *Handlers) validateSortFields(
-	sortFields []string,
-	safeList map[string]struct{},
+func (h *Handlers) readInt64Slice(
+	qs url.Values,
+	key string,
+	defaultValue []int64,
 	valErrs map[string]string,
-) {
-	if len(sortFields) > len(safeList) {
-		valErrs["sort"] = "contains too many fields"
-		return
+) []int64 {
+	ids := h.readCSV(qs, key, []string{})
+	if len(ids) == 0 {
+		return defaultValue
 	}
 
-	for _, key := range sortFields {
-		if _, ok := safeList[key]; !ok {
-			valErrs[key] = "is not a valid sort field"
+	result := make([]int64, 0, len(ids))
+	for _, idString := range ids {
+		id, err := strconv.ParseInt(strings.TrimSpace(idString), 10, 64)
+		if err != nil {
+			valErrs["id"] = fmt.Sprintf("invalid id: %q", idString)
+			return nil
 		}
+
+		result = append(result, id)
 	}
+
+	return result
+}
+
+func (h *Handlers) readTime(
+	qs url.Values,
+	key string,
+	defaultValue *time.Time,
+	valErrs map[string]string,
+) *time.Time {
+	timeStr := qs.Get(key)
+	if timeStr == "" {
+		return defaultValue
+	}
+
+	timeVal, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		valErrs[key] = fmt.Sprintf("invalid datetime: %s", timeStr)
+		return defaultValue
+	}
+
+	return &timeVal
 }

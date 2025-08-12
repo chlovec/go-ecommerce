@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -63,5 +64,10 @@ func (h *Handlers) CreateProductHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Write successful response if all succeeds.
-	h.writeJSON(w, r, http.StatusCreated, envelope{"product": product}, nil)
+	// Create a location header to be included in the http response to
+	// let the client know which url they can find newly created
+	// resource at.
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/api/products/%d", product.ID))
+	h.writeJSON(w, r, http.StatusCreated, envelope{"product": product}, headers)
 }

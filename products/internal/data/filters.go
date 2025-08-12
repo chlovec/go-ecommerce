@@ -10,9 +10,9 @@ type Filters struct {
 	Name     string `validate:"omitempty,max=100"`
 	DateFrom *time.Time
 	DateTo   *time.Time
-	Sorts    []string `validate:"omitempty,max=4,oneof=id created_at name -id -created_at -name"`
-	Page     int      `validate:"min=1,max=10_0000_000"`
-	PageSize int      `validate:"min=1,max=100"`
+	Sorts    []string `validate:"omitempty,max=4,dive,oneof=id created_at name -id -created_at -name"`
+	Page     int      `validate:"gte=1,lte=10_0000_000"`
+	PageSize int      `validate:"gte=1,lte=100"`
 }
 
 func (f *Filters) sortColumns() string {
