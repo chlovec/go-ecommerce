@@ -16,12 +16,12 @@ import (
 func TestProductModel_Insert(t *testing.T) {
 	t.Parallel()
 
-	// Setup DB mock
-	db, mock, err := sqlmock.New()
+	// Setup DB sqlMock
+	db, sqlMock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer db.Close()
 
-	model := ProductModel{DB: db}
+	productModel := ProductModel{DB: db}
 	ctx := context.Background()
 
 	product := Product{
@@ -33,8 +33,8 @@ func TestProductModel_Insert(t *testing.T) {
 	}
 
 	var expectedQuery = regexp.QuoteMeta(`
-		INSERT INTO products (name, category_id, description, price, quantity)
-		VALUES($1, $2, $3, $4, $5)
+		INSERT INTO products (name,category_id,description,price,quantity) 
+		VALUES (?,?,?,?,?)
 		RETURNING id, created_at, version
 	`)
 
@@ -48,10 +48,19 @@ func TestProductModel_Insert(t *testing.T) {
 		}
 
 		createdAt := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
-		mock.ExpectQuery(expectedQuery).
-			WithArgs(productInsert.Name, productInsert.CategoryID, productInsert.Description, productInsert.Price, productInsert.Quantity).
-			WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "version"}).
-				AddRow(1, createdAt, 1))
+		mockRow := sqlmock.NewRows(
+			[]string{"id", "created_at", "version"},
+		).
+			AddRow(1, createdAt, 1)
+		sqlMock.ExpectQuery(expectedQuery).
+			WithArgs(
+				productInsert.Name,
+				productInsert.CategoryID,
+				productInsert.Description,
+				productInsert.Price,
+				productInsert.Quantity,
+			).
+			WillReturnRows(mockRow)
 
 		expectedProduct := Product{
 			ID:          1,
@@ -64,18 +73,18 @@ func TestProductModel_Insert(t *testing.T) {
 			CreatedAt:   createdAt,
 		}
 
-		err := model.Insert(ctx, &productInsert)
+		err := productModel.Insert(ctx, &productInsert)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedProduct, productInsert)
 		assert.Equal(t, 1, productInsert.Version)
 	})
 
 	t.Run("foreign key violation", func(t *testing.T) {
-		mock.ExpectQuery(expectedQuery).
+		sqlMock.ExpectQuery(expectedQuery).
 			WithArgs(product.Name, product.CategoryID, product.Description, product.Price, product.Quantity).
 			WillReturnError(&pq.Error{Code: "23503"})
 
-		err := model.Insert(ctx, &product)
+		err := productModel.Insert(ctx, &product)
 		assert.True(t, errors.Is(err, ErrInvalidCategoryId))
 		assert.Contains(
 			t,
@@ -86,11 +95,108 @@ func TestProductModel_Insert(t *testing.T) {
 
 	t.Run("other error", func(t *testing.T) {
 		dbErr := errors.New("unexpected DB error")
-		mock.ExpectQuery(expectedQuery).
+		sqlMock.ExpectQuery(expectedQuery).
 			WithArgs(product.Name, product.CategoryID, product.Description, product.Price, product.Quantity).
 			WillReturnError(dbErr)
 
-		err := model.Insert(ctx, &product)
+		err := productModel.Insert(ctx, &product)
 		assert.Equal(t, dbErr, err)
+	})
+}
+
+func TestProductModel_GetById(t *testing.T) {
+	t.Parallel()
+
+	// Setup DB mock
+	db, sqlMock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	productModel := ProductModel{DB: db}
+	ctx := context.Background()
+
+	var mockQuery = regexp.QuoteMeta(`
+		SELECT id, name, category_id, description, price, quantity, created_at, version
+		FROM products
+		WHERE id = ?
+	`)
+
+	createdAt := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
+	expectedProduct := Product{
+		ID:          1,
+		Name:        "Test Product",
+		CategoryID:  999, // doesn't matter for success case
+		Description: "A test product",
+		Price:       10.99,
+		Quantity:    5,
+		CreatedAt:   createdAt,
+		Version:     1,
+	}
+
+	t.Run("returns product with the given id", func(t *testing.T) {
+		var id int64 = 1
+		mockRow := sqlMock.NewRows(
+			[]string{
+				"id",
+				"name",
+				"category_id",
+				"description",
+				"price",
+				"quantity",
+				"created_at",
+				"version",
+			},
+		).
+			AddRow(id, "Test Product", 999, "A test product", 10.99, 5, createdAt, 1)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(id).WillReturnRows(mockRow)
+
+		actualProduct, err := productModel.GetByID(ctx, id)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedProduct, *actualProduct)
+	})
+
+	t.Run("no rows returned", func(t *testing.T) {
+		var id int64 = 1
+		mockRow := sqlMock.NewRows(
+			[]string{
+				"id",
+				"name",
+				"category_id",
+				"description",
+				"price",
+				"quantity",
+				"created_at",
+				"version",
+			},
+		)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(id).WillReturnRows(mockRow)
+
+		actualProduct, err := productModel.GetByID(ctx, id)
+		assert.Nil(t, actualProduct)
+		assert.Equal(t, ErrRecordNotFound, err)
+		assert.Error(t, err)
+	})
+
+	t.Run("db error", func(t *testing.T) {
+		mockError := errors.New("db error")
+		sqlMock.ExpectQuery(mockQuery).WithArgs(1).WillReturnError(mockError)
+
+		actualProduct, err := productModel.GetByID(ctx, 1)
+		assert.Nil(t, actualProduct)
+		assert.Equal(t, mockError, err)
+		assert.Error(t, err)
+	})
+
+	t.Run("context canceled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockError := errors.New("db error")
+		sqlMock.ExpectQuery(mockQuery).WithArgs(23).WillReturnError(mockError)
+
+		actualProduct, err := productModel.GetByID(ctx, 1)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "context canceled")
+		assert.Nil(t, actualProduct)
 	})
 }

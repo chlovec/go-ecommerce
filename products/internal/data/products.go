@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/lib/pq"
 )
 
@@ -30,18 +31,16 @@ type ProductRepository interface {
 }
 
 func (p *ProductModel) Insert(ctx context.Context, product *Product) error {
-	query := `
-		INSERT INTO products (name, category_id, description, price, quantity)
-		VALUES($1, $2, $3, $4, $5)
-		RETURNING id, created_at, version
-	`
-	args := []any{
-		product.Name,
-		product.CategoryID,
-		product.Description,
-		product.Price,
-		product.Quantity,
-	}
+	query, args, _ := sq.Insert("products").
+		Columns("name", "category_id", "description", "price", "quantity").
+		Values(
+			product.Name,
+			product.CategoryID,
+			product.Description,
+			product.Price,
+			product.Quantity).
+		Suffix("RETURNING id, created_at, version").
+		ToSql()
 	err := p.DB.QueryRowContext(ctx, query, args...).Scan(
 		&product.ID,
 		&product.CreatedAt,
@@ -61,4 +60,40 @@ func (p *ProductModel) Insert(ctx context.Context, product *Product) error {
 	}
 
 	return nil
+}
+
+func (p *ProductModel) GetByID(ctx context.Context, id int64) (*Product, error) {
+	query, _, _ := sq.Select(
+		"id",
+		"name",
+		"category_id",
+		"description",
+		"price",
+		"quantity",
+		"created_at",
+		"version",
+	).
+		From("products").
+		Where(sq.Eq{"id": id}).
+		ToSql()
+
+	var product Product
+	err := p.DB.QueryRowContext(ctx, query, id).Scan(
+		&product.ID,
+		&product.Name,
+		&product.CategoryID,
+		&product.Description,
+		&product.Price,
+		&product.Quantity,
+		&product.CreatedAt,
+		&product.Version,
+	)
+
+	if err != nil && errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrRecordNotFound
+	} else if err != nil {
+		return nil, err
+	}
+
+	return &product, nil
 }
