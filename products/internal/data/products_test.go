@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"fmt"
@@ -27,7 +28,7 @@ func TestProductModel_Insert(t *testing.T) {
 
 	product := Product{
 		Name:        "Test Product",
-		CategoryID:  999, // doesn't matter for success case
+		CategoryID:  999,
 		Description: "A test product",
 		Price:       10.99,
 		Quantity:    5,
@@ -448,7 +449,118 @@ func TestProductModel_GetAll(t *testing.T) {
 }
 
 func TestProductModel_Update(t *testing.T) {
-	t.Run("updates product successfully", func(t *testing.T) {
+	t.Parallel()
 
+	db, sqlMock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	productModel := NewProductModel(db)
+	ctx := context.Background()
+	args := []driver.Value{
+		"Test Product",
+		999,
+		"A test product",
+		10.99,
+		5,
+		2,
+		1,
+		1,
+	}
+
+	var mockQuery = regexp.QuoteMeta(
+		`UPDATE products 
+		SET name = ?, category_id = ?, description = ?, price = ?, quantity = ?, version = ? WHERE id = ? AND version = ? RETURNING version`,
+	)
+
+	t.Run("updates product successfully", func(t *testing.T) {
+		mockRows := sqlmock.NewRows([]string{"version"}).AddRow(2)
+		sqlMock.ExpectQuery(mockQuery).
+			WithArgs(args...).
+			WillReturnRows(mockRows)
+
+		actualProduct := Product{
+			ID:          1,
+			Name:        "Test Product",
+			CategoryID:  999,
+			Description: "A test product",
+			Price:       10.99,
+			Quantity:    5,
+			Version:     1,
+		}
+		expectedProduct := Product{
+			ID:          1,
+			Name:        "Test Product",
+			CategoryID:  999,
+			Description: "A test product",
+			Price:       10.99,
+			Quantity:    5,
+			Version:     2,
+		}
+
+		err := productModel.Update(ctx, &actualProduct)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedProduct, actualProduct)
+	})
+
+	t.Run("query update error", func(t *testing.T) {
+		mockError := errors.New("query update error")
+		sqlMock.ExpectQuery(mockQuery).
+			WithArgs(args...).
+			WillReturnError(mockError)
+
+		actualProduct := Product{
+			ID:          1,
+			Name:        "Test Product",
+			CategoryID:  999,
+			Description: "A test product",
+			Price:       10.99,
+			Quantity:    5,
+			Version:     1,
+		}
+		expectedProduct := Product{
+			ID:          1,
+			Name:        "Test Product",
+			CategoryID:  999,
+			Description: "A test product",
+			Price:       10.99,
+			Quantity:    5,
+			Version:     1,
+		}
+
+		err := productModel.Update(ctx, &actualProduct)
+		assert.Error(t, err)
+		assert.Equal(t, "query update error", err.Error())
+		assert.Equal(t, expectedProduct, actualProduct)
+	})
+
+	t.Run("edit conflict", func(t *testing.T) {
+		sqlMock.ExpectQuery(mockQuery).
+			WithArgs(args...).
+			WillReturnError(sql.ErrNoRows)
+
+		actualProduct := Product{
+			ID:          1,
+			Name:        "Test Product",
+			CategoryID:  999,
+			Description: "A test product",
+			Price:       10.99,
+			Quantity:    5,
+			Version:     1,
+		}
+		expectedProduct := Product{
+			ID:          1,
+			Name:        "Test Product",
+			CategoryID:  999,
+			Description: "A test product",
+			Price:       10.99,
+			Quantity:    5,
+			Version:     1,
+		}
+
+		err := productModel.Update(ctx, &actualProduct)
+		assert.Error(t, err)
+		assert.Equal(t, ErrEditConflict, err)
+		assert.Equal(t, expectedProduct, actualProduct)
 	})
 }
