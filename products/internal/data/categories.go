@@ -19,13 +19,17 @@ type Category struct {
 }
 
 type CategoryModel struct {
-	DB *sql.DB
+	db *sql.DB
 }
 
 type CategoryRepository interface {
 	Insert(ctx context.Context, category *Category) error
 	GetByID(ctx context.Context, id int64) (*Category, error)
 	GetAll(ctx context.Context, filters Filters) ([]*Category, Metadata, error)
+}
+
+func NewCategoryModel(db *sql.DB) *CategoryModel {
+	return &CategoryModel{db: db}
 }
 
 func (c *CategoryModel) Insert(ctx context.Context, category *Category) error {
@@ -35,7 +39,7 @@ func (c *CategoryModel) Insert(ctx context.Context, category *Category) error {
 		RETURNING id, created_at, version
 	`
 	args := []any{category.Name, category.Description}
-	return c.DB.QueryRowContext(ctx, query, args...).Scan(
+	return c.db.QueryRowContext(ctx, query, args...).Scan(
 		&category.ID,
 		&category.CreatedAt,
 		&category.Version,
@@ -49,7 +53,7 @@ func (c *CategoryModel) GetByID(ctx context.Context, id int64) (*Category, error
 		WHERE id = $1
 	`
 	var category Category
-	err := c.DB.QueryRowContext(ctx, query, id).Scan(
+	err := c.db.QueryRowContext(ctx, query, id).Scan(
 		&category.ID,
 		&category.Name,
 		&category.Description,
@@ -80,7 +84,7 @@ func (c *CategoryModel) Update(ctx context.Context, category *Category) error {
 	// Version in the where clause is used for optimistic concurrency. if there is an
 	// edit conflict, it will result in sql.ErrNoRows
 	args := []any{category.Name, category.Description, category.ID, category.Version}
-	err := c.DB.QueryRowContext(ctx, query, args...).Scan(&category.Version)
+	err := c.db.QueryRowContext(ctx, query, args...).Scan(&category.Version)
 
 	if err != nil {
 		switch {
@@ -101,7 +105,7 @@ func (c *CategoryModel) Delete(ctx context.Context, id int64) error {
 	// Execute SQL query using the Exec() method, passing in the id variable as
 	// the value for the placeholder parameter. The Exec() method returns a sql.Result
 	// value
-	result, err := c.DB.ExecContext(ctx, query, id)
+	result, err := c.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
@@ -143,7 +147,7 @@ func (c *CategoryModel) GetAll(
 		filters.offset(),
 	}
 
-	rows, err := c.DB.QueryContext(ctx, query, args...)
+	rows, err := c.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, Metadata{}, err
 	}

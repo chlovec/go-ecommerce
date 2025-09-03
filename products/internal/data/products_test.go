@@ -21,7 +21,7 @@ func TestProductModel_Insert(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	productModel := ProductModel{DB: db}
+	productModel := ProductModel{db: db}
 	ctx := context.Background()
 
 	product := Product{
@@ -112,7 +112,7 @@ func TestProductModel_GetById(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	productModel := ProductModel{DB: db}
+	productModel := ProductModel{db: db}
 	ctx := context.Background()
 
 	var mockQuery = regexp.QuoteMeta(`
@@ -208,7 +208,7 @@ func TestProductModel_GetAll(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	productModel := ProductModel{DB: db}
+	productModel := ProductModel{db: db}
 	ctx := context.Background()
 
 	var mockQuery = regexp.QuoteMeta(`

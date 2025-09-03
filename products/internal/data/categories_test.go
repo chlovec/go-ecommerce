@@ -20,7 +20,7 @@ func TestCategoryModel_Insert(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	categoryModel := CategoryModel{DB: db}
+	categoryModel := CategoryModel{db: db}
 	ctx := context.Background()
 
 	mockQuery := regexp.QuoteMeta(`
@@ -96,7 +96,7 @@ func TestCategoryModel_GetByID(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	categoryModel := CategoryModel{DB: db}
+	categoryModel := CategoryModel{db: db}
 	ctx := context.Background()
 
 	var mockQuery = regexp.QuoteMeta(`
@@ -179,7 +179,7 @@ func TestUpdateCategoryModel_Update(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	categoryModel := CategoryModel{DB: db}
+	categoryModel := CategoryModel{db: db}
 	ctx := context.Background()
 
 	createdAt := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
@@ -280,7 +280,7 @@ func TestCategoryModel_Delete(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	categoryModel := CategoryModel{DB: db}
+	categoryModel := CategoryModel{db: db}
 	ctx := context.Background()
 
 	mockQuery := regexp.QuoteMeta(`DELETE FROM categories WHERE id = $1`)
@@ -342,7 +342,7 @@ func TestCategoryModel_List(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	categoryModel := CategoryModel{DB: db}
+	categoryModel := CategoryModel{db: db}
 	ctx := context.Background()
 
 	filters := Filters{

@@ -23,11 +23,15 @@ type Product struct {
 }
 
 type ProductModel struct {
-	DB *sql.DB
+	db *sql.DB
 }
 
 type ProductRepository interface {
 	Insert(ctx context.Context, product *Product) error
+}
+
+func NewProductModel(db *sql.DB) *ProductModel {
+	return &ProductModel{db: db}
 }
 
 func (p *ProductModel) Insert(ctx context.Context, product *Product) error {
@@ -41,7 +45,7 @@ func (p *ProductModel) Insert(ctx context.Context, product *Product) error {
 			product.Quantity).
 		Suffix("RETURNING id, created_at, version").
 		ToSql()
-	err := p.DB.QueryRowContext(ctx, query, args...).Scan(
+	err := p.db.QueryRowContext(ctx, query, args...).Scan(
 		&product.ID,
 		&product.CreatedAt,
 		&product.Version,
@@ -78,7 +82,7 @@ func (p *ProductModel) GetByID(ctx context.Context, id int64) (*Product, error) 
 		ToSql()
 
 	var product Product
-	err := p.DB.QueryRowContext(ctx, query, id).Scan(
+	err := p.db.QueryRowContext(ctx, query, id).Scan(
 		&product.ID,
 		&product.Name,
 		&product.CategoryID,
@@ -112,7 +116,7 @@ func (p *ProductModel) GetAll(ctx context.Context, filters Filters) ([]*Product,
 
 	builder = p.buildFilters(builder, filters)
 	query, args, _ := builder.ToSql()
-	rows, err := p.DB.QueryContext(ctx, query, args...)
+	rows, err := p.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, Metadata{}, err
 	}
@@ -178,7 +182,7 @@ func (p *ProductModel) countProducts(ctx context.Context, filters Filters) (int6
 	query, args, _ := builder.ToSql()
 
 	var totalRecords int64
-	err := p.DB.QueryRowContext(ctx, query, args...).Scan(&totalRecords)
+	err := p.db.QueryRowContext(ctx, query, args...).Scan(&totalRecords)
 	if err != nil {
 		return 0, err
 	}
