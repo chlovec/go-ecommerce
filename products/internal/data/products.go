@@ -189,3 +189,48 @@ func (p *ProductModel) countProducts(ctx context.Context, filters Filters) (int6
 
 	return totalRecords, nil
 }
+
+func (p *ProductModel) Update(ctx context.Context, product *Product) error {
+	query, args, _ := sq.Update("products").
+		Set("name", product.Name).
+		Set("category_id", product.CategoryID).
+		Set("description", product.Description).
+		Set("price", product.Price).
+		Set("quantity", product.Quantity).
+		Set("version", product.Version+1).
+		Where(sq.Eq{"id": product.ID}).
+		Where(sq.Eq{"version": product.Version}).
+		Suffix("RETURNING version").
+		ToSql()
+
+	err := p.db.QueryRowContext(ctx, query, args...).Scan(&product.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *ProductModel) Delete(ctx context.Context, id int64) error {
+	query, _, _ := sq.Delete("products").Where(sq.Eq{"id": id}).ToSql()
+	result, err := p.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+
+	return nil
+}

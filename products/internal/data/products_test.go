@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"regexp"
@@ -32,6 +33,14 @@ func TestProductModel_Insert(t *testing.T) {
 		Quantity:    5,
 	}
 
+	args := []driver.Value{
+		product.Name,
+		product.CategoryID,
+		product.Description,
+		product.Price,
+		product.Quantity,
+	}
+
 	var expectedQuery = regexp.QuoteMeta(`
 		INSERT INTO products (name,category_id,description,price,quantity) 
 		VALUES (?,?,?,?,?)
@@ -53,13 +62,7 @@ func TestProductModel_Insert(t *testing.T) {
 		).
 			AddRow(1, createdAt, 1)
 		sqlMock.ExpectQuery(expectedQuery).
-			WithArgs(
-				productInsert.Name,
-				productInsert.CategoryID,
-				productInsert.Description,
-				productInsert.Price,
-				productInsert.Quantity,
-			).
+			WithArgs(args...).
 			WillReturnRows(mockRow)
 
 		expectedProduct := Product{
@@ -81,7 +84,7 @@ func TestProductModel_Insert(t *testing.T) {
 
 	t.Run("foreign key violation", func(t *testing.T) {
 		sqlMock.ExpectQuery(expectedQuery).
-			WithArgs(product.Name, product.CategoryID, product.Description, product.Price, product.Quantity).
+			WithArgs(args...).
 			WillReturnError(&pq.Error{Code: "23503"})
 
 		err := productModel.Insert(ctx, &product)
@@ -96,7 +99,7 @@ func TestProductModel_Insert(t *testing.T) {
 	t.Run("other error", func(t *testing.T) {
 		dbErr := errors.New("unexpected DB error")
 		sqlMock.ExpectQuery(expectedQuery).
-			WithArgs(product.Name, product.CategoryID, product.Description, product.Price, product.Quantity).
+			WithArgs(args...).
 			WillReturnError(dbErr)
 
 		err := productModel.Insert(ctx, &product)
@@ -263,20 +266,20 @@ func TestProductModel_GetAll(t *testing.T) {
 			TotalRecords: 10,
 		}
 
-		mockRow := sqlMock.NewRows(
-			[]string{
-				"id",
-				"name",
-				"category_id",
-				"description",
-				"price",
-				"quantity",
-				"created_at",
-				"version",
-			},
-		).
-			AddRow(1, "Test Product1", 999, "Test product1 description", 10.99, 5, createdAt, 1).
-			AddRow(13, "Test Product2", 12, "Test product2 description", 25.73, 16, createdAt, 1)
+		mockRow := sqlMock.NewRows([]string{
+			"id",
+			"name",
+			"category_id",
+			"description",
+			"price",
+			"quantity",
+			"created_at",
+			"version",
+		}).AddRow(
+			1, "Test Product1", 999, "Test product1 description", 10.99, 5, createdAt, 1,
+		).AddRow(
+			13, "Test Product2", 12, "Test product2 description", 25.73, 16, createdAt, 1,
+		)
 
 		testQuery := regexp.QuoteMeta(
 			`
@@ -289,7 +292,10 @@ func TestProductModel_GetAll(t *testing.T) {
 			ORDER BY created_at DESC, name ASC, id ASC
 			LIMIT 2 OFFSET 0`,
 		)
-		sqlMock.ExpectQuery(testQuery).WithArgs().WillReturnRows(mockRow)
+		args := []driver.Value{
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "test", createdAt, createdAt,
+		}
+		sqlMock.ExpectQuery(testQuery).WithArgs(args...).WillReturnRows(mockRow)
 
 		countQuery := regexp.QuoteMeta(
 			`SELECT COUNT(*) 
@@ -301,7 +307,7 @@ func TestProductModel_GetAll(t *testing.T) {
 			LIMIT 2 OFFSET 0`,
 		)
 		countRows := sqlmock.NewRows([]string{"count"}).AddRow(10)
-		sqlMock.ExpectQuery(countQuery).WithArgs().WillReturnRows(countRows)
+		sqlMock.ExpectQuery(countQuery).WithArgs(args...).WillReturnRows(countRows)
 
 		actualProducts, metadata, err := productModel.GetAll(ctx, testFilters)
 		assert.NoError(t, err)
@@ -323,13 +329,13 @@ func TestProductModel_GetAll(t *testing.T) {
 				"add_col",
 			},
 		)
-		sqlMock.ExpectQuery(mockQuery).WithArgs().WillReturnRows(mockRow)
+		sqlMock.ExpectQuery(mockQuery).WillReturnRows(mockRow)
 
 		countQuery := regexp.QuoteMeta(
 			`SELECT COUNT(*) FROM products ORDER BY id ASC LIMIT 20 OFFSET 0`,
 		)
 		countRows := sqlmock.NewRows([]string{"count"}).AddRow(0)
-		sqlMock.ExpectQuery(countQuery).WithArgs().WillReturnRows(countRows)
+		sqlMock.ExpectQuery(countQuery).WillReturnRows(countRows)
 
 		actualProducts, metadata, err := productModel.GetAll(ctx, filters)
 		assert.NoError(t, err)
@@ -338,7 +344,8 @@ func TestProductModel_GetAll(t *testing.T) {
 	})
 
 	t.Run("execute query error", func(t *testing.T) {
-		sqlMock.ExpectQuery(mockQuery).WithArgs().WillReturnError(errors.New("execute query error"))
+		sqlMock.ExpectQuery(mockQuery).
+			WillReturnError(errors.New("execute query error"))
 
 		actualProducts, metadata, err := productModel.GetAll(ctx, filters)
 		assert.Error(t, err)
@@ -348,21 +355,21 @@ func TestProductModel_GetAll(t *testing.T) {
 	})
 
 	t.Run("row scan error", func(t *testing.T) {
-		mockRow := sqlMock.NewRows(
-			[]string{
-				"id",
-				"name",
-				"category_id",
-				"description",
-				"price",
-				"quantity",
-				"created_at",
-				"version",
-				"add_col",
-			},
-		).
-			AddRow(1, "Test Product", 999, "A test product", 10.99, 5, createdAt, 1, 10)
-		sqlMock.ExpectQuery(mockQuery).WithArgs().WillReturnRows(mockRow)
+		mockRow := sqlMock.NewRows([]string{
+			"id",
+			"name",
+			"category_id",
+			"description",
+			"price",
+			"quantity",
+			"created_at",
+			"version",
+			"add_col",
+		}).AddRow(
+			1, "Test Product", 999, "A test product", 10.99, 5, createdAt, 1, 10,
+		)
+
+		sqlMock.ExpectQuery(mockQuery).WillReturnRows(mockRow)
 
 		actualProducts, metadata, err := productModel.GetAll(ctx, filters)
 		assert.Error(t, err)
@@ -383,10 +390,11 @@ func TestProductModel_GetAll(t *testing.T) {
 				"created_at",
 				"version",
 			},
-		).
-			AddRow(1, "Test Product", 999, "A test product", 10.99, 5, createdAt, 1).
-			RowError(0, errors.New("rows iteration error"))
-		sqlMock.ExpectQuery(mockQuery).WithArgs().WillReturnRows(mockRow)
+		).AddRow(
+			1, "Test Product", 999, "A test product", 10.99, 5, createdAt, 1,
+		).RowError(0, errors.New("rows iteration error"))
+
+		sqlMock.ExpectQuery(mockQuery).WillReturnRows(mockRow)
 
 		actualProducts, metadata, err := productModel.GetAll(ctx, filters)
 		assert.Error(t, err)
@@ -409,12 +417,13 @@ func TestProductModel_GetAll(t *testing.T) {
 				"add_col",
 			},
 		)
-		sqlMock.ExpectQuery(mockQuery).WithArgs().WillReturnRows(mockRow)
+
+		sqlMock.ExpectQuery(mockQuery).WillReturnRows(mockRow)
 
 		countQuery := regexp.QuoteMeta(
 			`SELECT COUNT(*) FROM products ORDER BY id ASC LIMIT 20 OFFSET 0`,
 		)
-		sqlMock.ExpectQuery(countQuery).WithArgs().WillReturnError(errors.New("sql error"))
+		sqlMock.ExpectQuery(countQuery).WillReturnError(errors.New("sql error"))
 
 		actualProducts, metadata, err := productModel.GetAll(ctx, filters)
 		assert.Error(t, err)
@@ -435,5 +444,11 @@ func TestProductModel_GetAll(t *testing.T) {
 		assert.Equal(t, err.Error(), "context canceled")
 		assert.Nil(t, actualProducts)
 		assert.Equal(t, Metadata{}, metadata)
+	})
+}
+
+func TestProductModel_Update(t *testing.T) {
+	t.Run("updates product successfully", func(t *testing.T) {
+
 	})
 }
