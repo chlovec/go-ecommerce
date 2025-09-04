@@ -564,3 +564,60 @@ func TestProductModel_Update(t *testing.T) {
 		assert.Equal(t, expectedProduct, actualProduct)
 	})
 }
+
+func TestProductModel_Delete(t *testing.T) {
+	t.Parallel()
+
+	db, sqlMock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	ctx := context.Background()
+
+	productModel := NewProductModel(db)
+
+	const deleteQuery = `DELETE FROM products WHERE id = ?`
+	var mockQuery = regexp.QuoteMeta(deleteQuery)
+
+	t.Run("delete product successfully", func(t *testing.T) {
+		mockResult := sqlmock.NewResult(1, 1)
+		sqlMock.ExpectExec(mockQuery).WithArgs(1).WillReturnResult(mockResult)
+		err := productModel.Delete(ctx, 1)
+		assert.NoError(t, err)
+	})
+
+	t.Run("delete query error", func(t *testing.T) {
+		mockError := errors.New("delete query error")
+		sqlMock.ExpectExec(mockQuery).WithArgs(1).WillReturnError(mockError)
+		err := productModel.Delete(ctx, 1)
+		assert.Error(t, err)
+		assert.Equal(t, "delete query error", err.Error())
+	})
+
+	t.Run("zero rows affected", func(t *testing.T) {
+		mockResult := sqlmock.NewResult(0, 0)
+		sqlMock.ExpectExec(mockQuery).WithArgs(1).WillReturnResult(mockResult)
+		err := productModel.Delete(ctx, 1)
+		assert.Error(t, err)
+		assert.Equal(t, ErrRecordNotFound, err)
+	})
+
+	t.Run("rows affected error", func(t *testing.T) {
+		mockResult := sqlmock.NewErrorResult(errors.New("rows affected error"))
+		sqlMock.ExpectExec(mockQuery).WithArgs(1).WillReturnResult(mockResult)
+		err := productModel.Delete(ctx, 1)
+		assert.Error(t, err)
+		assert.Equal(t, "rows affected error", err.Error())
+	})
+
+	t.Run("context cancelled", func(t *testing.T) {
+		cancelledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockResult := sqlmock.NewErrorResult(errors.New("rows affected error"))
+		sqlMock.ExpectExec(mockQuery).WithArgs(1).WillReturnResult(mockResult)
+		err := productModel.Delete(cancelledCtx, 1)
+		assert.Error(t, err)
+		assert.Equal(t, "context canceled", err.Error())
+	})
+}
