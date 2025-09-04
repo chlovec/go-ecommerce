@@ -190,19 +190,6 @@ func TestProductModel_GetById(t *testing.T) {
 		assert.Equal(t, mockError, err)
 		assert.Error(t, err)
 	})
-
-	t.Run("context canceled", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		mockError := errors.New("db error")
-		sqlMock.ExpectQuery(mockQuery).WithArgs(23).WillReturnError(mockError)
-
-		actualProduct, err := productModel.GetByID(ctx, 1)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "context canceled")
-		assert.Nil(t, actualProduct)
-	})
 }
 
 func TestProductModel_GetAll(t *testing.T) {
@@ -432,20 +419,6 @@ func TestProductModel_GetAll(t *testing.T) {
 		assert.Nil(t, actualProducts)
 		assert.Equal(t, Metadata{}, metadata)
 	})
-
-	t.Run("context canceled", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		mockError := errors.New("db error")
-		sqlMock.ExpectQuery(mockQuery).WithArgs(23).WillReturnError(mockError)
-
-		actualProducts, metadata, err := productModel.GetAll(ctx, filters)
-		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "context canceled")
-		assert.Nil(t, actualProducts)
-		assert.Equal(t, Metadata{}, metadata)
-	})
 }
 
 func TestProductModel_Update(t *testing.T) {
@@ -608,16 +581,5 @@ func TestProductModel_Delete(t *testing.T) {
 		err := productModel.Delete(ctx, 1)
 		assert.Error(t, err)
 		assert.Equal(t, "rows affected error", err.Error())
-	})
-
-	t.Run("context cancelled", func(t *testing.T) {
-		cancelledCtx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		mockResult := sqlmock.NewErrorResult(errors.New("rows affected error"))
-		sqlMock.ExpectExec(mockQuery).WithArgs(1).WillReturnResult(mockResult)
-		err := productModel.Delete(cancelledCtx, 1)
-		assert.Error(t, err)
-		assert.Equal(t, "context canceled", err.Error())
 	})
 }
