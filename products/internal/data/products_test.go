@@ -51,25 +51,21 @@ func TestProductModel_Insert(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		productInsert := Product{
 			Name:        "Test Product",
-			CategoryID:  999, // doesn't matter for success case
+			CategoryID:  999,
 			Description: "A test product",
 			Price:       10.99,
 			Quantity:    5,
 		}
 
 		createdAt := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
-		mockRow := sqlmock.NewRows(
-			[]string{"id", "created_at", "version"},
-		).
-			AddRow(1, createdAt, 1)
-		sqlMock.ExpectQuery(expectedQuery).
-			WithArgs(args...).
-			WillReturnRows(mockRow)
+		mockCols := []string{"id", "created_at", "version"}
+		mockRow := sqlmock.NewRows(mockCols).AddRow(1, createdAt, 1)
+		sqlMock.ExpectQuery(expectedQuery).WithArgs(args...).WillReturnRows(mockRow)
 
 		expectedProduct := Product{
 			ID:          1,
 			Name:        "Test Product",
-			CategoryID:  999, // doesn't matter for success case
+			CategoryID:  999,
 			Description: "A test product",
 			Price:       10.99,
 			Quantity:    5,
@@ -84,9 +80,8 @@ func TestProductModel_Insert(t *testing.T) {
 	})
 
 	t.Run("foreign key violation", func(t *testing.T) {
-		sqlMock.ExpectQuery(expectedQuery).
-			WithArgs(args...).
-			WillReturnError(&pq.Error{Code: "23503"})
+		mockError := &pq.Error{Code: "23503"}
+		sqlMock.ExpectQuery(expectedQuery).WithArgs(args...).WillReturnError(mockError)
 
 		err := productModel.Insert(ctx, &product)
 		assert.True(t, errors.Is(err, ErrInvalidCategoryId))
@@ -99,9 +94,7 @@ func TestProductModel_Insert(t *testing.T) {
 
 	t.Run("other error", func(t *testing.T) {
 		dbErr := errors.New("unexpected DB error")
-		sqlMock.ExpectQuery(expectedQuery).
-			WithArgs(args...).
-			WillReturnError(dbErr)
+		sqlMock.ExpectQuery(expectedQuery).WithArgs(args...).WillReturnError(dbErr)
 
 		err := productModel.Insert(ctx, &product)
 		assert.Equal(t, dbErr, err)
@@ -129,7 +122,7 @@ func TestProductModel_GetById(t *testing.T) {
 	expectedProduct := Product{
 		ID:          1,
 		Name:        "Test Product",
-		CategoryID:  999, // doesn't matter for success case
+		CategoryID:  999,
 		Description: "A test product",
 		Price:       10.99,
 		Quantity:    5,
@@ -139,19 +132,18 @@ func TestProductModel_GetById(t *testing.T) {
 
 	t.Run("returns product with the given id", func(t *testing.T) {
 		var id int64 = 1
-		mockRow := sqlMock.NewRows(
-			[]string{
-				"id",
-				"name",
-				"category_id",
-				"description",
-				"price",
-				"quantity",
-				"created_at",
-				"version",
-			},
-		).
-			AddRow(id, "Test Product", 999, "A test product", 10.99, 5, createdAt, 1)
+		mockCols := []string{
+			"id",
+			"name",
+			"category_id",
+			"description",
+			"price",
+			"quantity",
+			"created_at",
+			"version",
+		}
+		rowValues := []driver.Value{id, "Test Product", 999, "A test product", 10.99, 5, createdAt, 1}
+		mockRow := sqlMock.NewRows(mockCols).AddRow(rowValues...)
 		sqlMock.ExpectQuery(mockQuery).WithArgs(id).WillReturnRows(mockRow)
 
 		actualProduct, err := productModel.GetByID(ctx, id)
@@ -161,18 +153,17 @@ func TestProductModel_GetById(t *testing.T) {
 
 	t.Run("no rows returned", func(t *testing.T) {
 		var id int64 = 1
-		mockRow := sqlMock.NewRows(
-			[]string{
-				"id",
-				"name",
-				"category_id",
-				"description",
-				"price",
-				"quantity",
-				"created_at",
-				"version",
-			},
-		)
+		mockCols := []string{
+			"id",
+			"name",
+			"category_id",
+			"description",
+			"price",
+			"quantity",
+			"created_at",
+			"version",
+		}
+		mockRow := sqlMock.NewRows(mockCols)
 		sqlMock.ExpectQuery(mockQuery).WithArgs(id).WillReturnRows(mockRow)
 
 		actualProduct, err := productModel.GetByID(ctx, id)
@@ -254,7 +245,7 @@ func TestProductModel_GetAll(t *testing.T) {
 			TotalRecords: 10,
 		}
 
-		mockRow := sqlMock.NewRows([]string{
+		mockCols := []string{
 			"id",
 			"name",
 			"category_id",
@@ -263,9 +254,12 @@ func TestProductModel_GetAll(t *testing.T) {
 			"quantity",
 			"created_at",
 			"version",
-		}).AddRow(
+		}
+		mockRow := sqlMock.NewRows(mockCols)
+		mockRow.AddRow(
 			1, "Test Product1", 999, "Test product1 description", 10.99, 5, createdAt, 1,
-		).AddRow(
+		)
+		mockRow.AddRow(
 			13, "Test Product2", 12, "Test product2 description", 25.73, 16, createdAt, 1,
 		)
 
@@ -304,24 +298,21 @@ func TestProductModel_GetAll(t *testing.T) {
 	})
 
 	t.Run("no rows returned", func(t *testing.T) {
-		mockRow := sqlMock.NewRows(
-			[]string{
-				"id",
-				"name",
-				"category_id",
-				"description",
-				"price",
-				"quantity",
-				"created_at",
-				"version",
-				"add_col",
-			},
-		)
+		mockCols := []string{
+			"id",
+			"name",
+			"category_id",
+			"description",
+			"price",
+			"quantity",
+			"created_at",
+			"version",
+		}
+		mockRow := sqlMock.NewRows(mockCols)
 		sqlMock.ExpectQuery(mockQuery).WillReturnRows(mockRow)
 
-		countQuery := regexp.QuoteMeta(
-			`SELECT COUNT(*) FROM products ORDER BY id ASC LIMIT 20 OFFSET 0`,
-		)
+		const countStmt = `SELECT COUNT(*) FROM products ORDER BY id ASC LIMIT 20 OFFSET 0`
+		countQuery := regexp.QuoteMeta(countStmt)
 		countRows := sqlmock.NewRows([]string{"count"}).AddRow(0)
 		sqlMock.ExpectQuery(countQuery).WillReturnRows(countRows)
 
@@ -332,8 +323,8 @@ func TestProductModel_GetAll(t *testing.T) {
 	})
 
 	t.Run("execute query error", func(t *testing.T) {
-		sqlMock.ExpectQuery(mockQuery).
-			WillReturnError(errors.New("execute query error"))
+		mockError := errors.New("execute query error")
+		sqlMock.ExpectQuery(mockQuery).WillReturnError(mockError)
 
 		actualProducts, metadata, err := productModel.GetAll(ctx, filters)
 		assert.Error(t, err)
@@ -343,7 +334,7 @@ func TestProductModel_GetAll(t *testing.T) {
 	})
 
 	t.Run("row scan error", func(t *testing.T) {
-		mockRow := sqlMock.NewRows([]string{
+		mockCols := []string{
 			"id",
 			"name",
 			"category_id",
@@ -353,7 +344,9 @@ func TestProductModel_GetAll(t *testing.T) {
 			"created_at",
 			"version",
 			"add_col",
-		}).AddRow(
+		}
+		mockRow := sqlMock.NewRows(mockCols)
+		mockRow.AddRow(
 			1, "Test Product", 999, "A test product", 10.99, 5, createdAt, 1, 10,
 		)
 
@@ -367,20 +360,21 @@ func TestProductModel_GetAll(t *testing.T) {
 	})
 
 	t.Run("row error", func(t *testing.T) {
-		mockRow := sqlMock.NewRows(
-			[]string{
-				"id",
-				"name",
-				"category_id",
-				"description",
-				"price",
-				"quantity",
-				"created_at",
-				"version",
-			},
-		).AddRow(
+		mockCols := []string{
+			"id",
+			"name",
+			"category_id",
+			"description",
+			"price",
+			"quantity",
+			"created_at",
+			"version",
+		}
+		mockRow := sqlMock.NewRows(mockCols)
+		mockRow.AddRow(
 			1, "Test Product", 999, "A test product", 10.99, 5, createdAt, 1,
-		).RowError(0, errors.New("rows iteration error"))
+		)
+		mockRow.RowError(0, errors.New("rows iteration error"))
 
 		sqlMock.ExpectQuery(mockQuery).WillReturnRows(mockRow)
 
@@ -392,19 +386,17 @@ func TestProductModel_GetAll(t *testing.T) {
 	})
 
 	t.Run("count product error", func(t *testing.T) {
-		mockRow := sqlMock.NewRows(
-			[]string{
-				"id",
-				"name",
-				"category_id",
-				"description",
-				"price",
-				"quantity",
-				"created_at",
-				"version",
-				"add_col",
-			},
-		)
+		mockCols := []string{
+			"id",
+			"name",
+			"category_id",
+			"description",
+			"price",
+			"quantity",
+			"created_at",
+			"version",
+		}
+		mockRow := sqlMock.NewRows(mockCols)
 
 		sqlMock.ExpectQuery(mockQuery).WillReturnRows(mockRow)
 
@@ -478,9 +470,7 @@ func TestProductModel_Update(t *testing.T) {
 
 	t.Run("query update error", func(t *testing.T) {
 		mockError := errors.New("query update error")
-		sqlMock.ExpectQuery(mockQuery).
-			WithArgs(args...).
-			WillReturnError(mockError)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(args...).WillReturnError(mockError)
 
 		actualProduct := Product{
 			ID:          1,
