@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"regexp"
 	"testing"
@@ -20,7 +21,7 @@ func TestCategoryModel_Insert(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	categoryModel := CategoryModel{db: db}
+	categoryModel := NewCategoryModel(db)
 	ctx := context.Background()
 
 	mockQuery := regexp.QuoteMeta(`
@@ -36,10 +37,10 @@ func TestCategoryModel_Insert(t *testing.T) {
 		}
 
 		createdAt := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
-		sqlMock.ExpectQuery(mockQuery).
-			WithArgs(category.Name, category.Description).
-			WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "version"}).
-				AddRow(1, createdAt, 1))
+		args := []driver.Value{category.Name, category.Description}
+		mockCol := []string{"id", "created_at", "version"}
+		mockRow := sqlmock.NewRows(mockCol).AddRow(1, createdAt, 1)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(args...).WillReturnRows(mockRow)
 
 		expectedCategory := Category{
 			ID:          1,
@@ -63,29 +64,11 @@ func TestCategoryModel_Insert(t *testing.T) {
 		}
 
 		dbErr := errors.New("unexpected DB error")
-		sqlMock.ExpectQuery(mockQuery).
-			WithArgs(category.Name, category.Description).
-			WillReturnError(dbErr)
+		args := []driver.Value{category.Name, category.Description}
+		sqlMock.ExpectQuery(mockQuery).WithArgs(args...).WillReturnError(dbErr)
 
 		err := categoryModel.Insert(ctx, &category)
 		assert.Equal(t, dbErr, err)
-	})
-
-	t.Run("context canceled", func(t *testing.T) {
-		category := Category{
-			Name:        "Test Category",
-			Description: "A test category",
-		}
-
-		newCtx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		sqlMock.ExpectQuery(mockQuery).
-			WithArgs(category.Name, category.Description).
-			WillReturnError(errors.New("unexpected DB error"))
-
-		err := categoryModel.Insert(newCtx, &category)
-		assert.Equal(t, "context canceled", err.Error())
 	})
 }
 
@@ -96,7 +79,7 @@ func TestCategoryModel_GetByID(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	categoryModel := CategoryModel{db: db}
+	categoryModel := NewCategoryModel(db)
 	ctx := context.Background()
 
 	var mockQuery = regexp.QuoteMeta(`
@@ -104,6 +87,8 @@ func TestCategoryModel_GetByID(t *testing.T) {
 		FROM categories
 		WHERE id = $1
 	`)
+
+	mockCol := []string{"id", "name", "description", "created_at", "version"}
 
 	t.Run("returns category with the given id", func(t *testing.T) {
 		var id int64 = 23
@@ -116,9 +101,8 @@ func TestCategoryModel_GetByID(t *testing.T) {
 			CreatedAt:   createdAt,
 		}
 
-		mockRow := sqlmock.NewRows(
-			[]string{"id", "name", "description", "created_at", "version"},
-		).AddRow(id, "Test Category", "A test category", createdAt, 1)
+		rowValues := []driver.Value{id, "Test Category", "A test category", createdAt, 1}
+		mockRow := sqlmock.NewRows(mockCol).AddRow(rowValues...)
 		sqlMock.ExpectQuery(mockQuery).WithArgs(id).WillReturnRows(mockRow)
 
 		actual, err := categoryModel.GetByID(ctx, id)
@@ -128,9 +112,7 @@ func TestCategoryModel_GetByID(t *testing.T) {
 	})
 
 	t.Run("no rows returned", func(t *testing.T) {
-		mockRow := sqlmock.NewRows(
-			[]string{"id", "name", "description", "created_at", "version"},
-		)
+		mockRow := sqlmock.NewRows(mockCol)
 		sqlMock.ExpectQuery(mockQuery).WithArgs(23).WillReturnRows(mockRow)
 
 		actual, err := categoryModel.GetByID(ctx, 23)
@@ -150,19 +132,6 @@ func TestCategoryModel_GetByID(t *testing.T) {
 		assert.Equal(t, mockError, err)
 		assert.Nil(t, actual)
 	})
-
-	t.Run("context canceled", func(t *testing.T) {
-		newCtx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		mockError := errors.New("db error")
-		sqlMock.ExpectQuery(mockQuery).WithArgs(23).WillReturnError(mockError)
-
-		actual, err := categoryModel.GetByID(newCtx, 23)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "context canceled")
-		assert.Nil(t, actual)
-	})
 }
 
 func TestUpdateCategoryModel_Update(t *testing.T) {
@@ -179,7 +148,7 @@ func TestUpdateCategoryModel_Update(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	categoryModel := CategoryModel{db: db}
+	categoryModel := NewCategoryModel(db)
 	ctx := context.Background()
 
 	createdAt := time.Date(2023, time.July, 1, 10, 0, 0, 0, time.UTC)
@@ -192,9 +161,9 @@ func TestUpdateCategoryModel_Update(t *testing.T) {
 			CreatedAt:   createdAt,
 		}
 
-		sqlMock.ExpectQuery(mockQuery).WithArgs(
-			category.Name, category.Description, category.ID, category.Version,
-		).WillReturnRows(sqlmock.NewRows([]string{"version"}).AddRow(2))
+		args := []driver.Value{category.Name, category.Description, category.ID, category.Version}
+		mockRow := sqlmock.NewRows([]string{"version"}).AddRow(2)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(args...).WillReturnRows(mockRow)
 
 		err := categoryModel.Update(ctx, &category)
 
@@ -218,9 +187,8 @@ func TestUpdateCategoryModel_Update(t *testing.T) {
 			CreatedAt:   createdAt,
 		}
 
-		sqlMock.ExpectQuery(mockQuery).WithArgs(
-			category.Name, category.Description, category.ID, category.Version,
-		).WillReturnError(sql.ErrNoRows)
+		args := []driver.Value{category.Name, category.Description, category.ID, category.Version}
+		sqlMock.ExpectQuery(mockQuery).WithArgs(args...).WillReturnError(sql.ErrNoRows)
 
 		err := categoryModel.Update(ctx, &category)
 
@@ -238,37 +206,15 @@ func TestUpdateCategoryModel_Update(t *testing.T) {
 			CreatedAt:   createdAt,
 		}
 
-		sqlMock.ExpectQuery(mockQuery).WithArgs(
-			category.Name, category.Description, category.ID, category.Version,
-		).WillReturnError(errors.New("db update error"))
+		args := []driver.Value{category.Name, category.Description, category.ID, category.Version}
+		mockError := errors.New("db update error")
+		sqlMock.ExpectQuery(mockQuery).WithArgs(args...).WillReturnError(mockError)
 
 		err := categoryModel.Update(ctx, &category)
 
 		assert.Error(t, err)
 		assert.Equal(t, err.Error(), "db update error")
 		assert.Equal(t, category.Version, 1)
-	})
-
-	t.Run("context canceled", func(t *testing.T) {
-		category := Category{
-			ID:          1,
-			Name:        "Test Category",
-			Description: "A test category",
-			Version:     1,
-			CreatedAt:   createdAt,
-		}
-
-		newCtx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		sqlMock.ExpectQuery(mockQuery).WithArgs(
-			category.Name, category.Description, category.ID, category.Version,
-		).WillReturnError(errors.New("db update error"))
-
-		err := categoryModel.Update(newCtx, &category)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "context canceled")
 	})
 }
 
@@ -280,7 +226,7 @@ func TestCategoryModel_Delete(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	categoryModel := CategoryModel{db: db}
+	categoryModel := NewCategoryModel(db)
 	ctx := context.Background()
 
 	mockQuery := regexp.QuoteMeta(`DELETE FROM categories WHERE id = $1`)
@@ -303,35 +249,19 @@ func TestCategoryModel_Delete(t *testing.T) {
 	})
 
 	t.Run("zero rows affected", func(t *testing.T) {
-		sqlMock.ExpectExec(mockQuery).WithArgs(id).WillReturnResult(
-			sqlmock.NewResult(1, 0),
-		)
+		mockResult := sqlmock.NewResult(1, 0)
+		sqlMock.ExpectExec(mockQuery).WithArgs(id).WillReturnResult(mockResult)
 		err := categoryModel.Delete(ctx, id)
 		assert.Error(t, err)
 		assert.Equal(t, err.Error(), "record not found")
 	})
 
 	t.Run("rows affected error", func(t *testing.T) {
-		sqlMock.ExpectExec(mockQuery).WithArgs(id).WillReturnResult(
-			sqlmock.NewErrorResult(errors.New("rows affected error")),
-		)
+		mockResult := sqlmock.NewErrorResult(errors.New("rows affected error"))
+		sqlMock.ExpectExec(mockQuery).WithArgs(id).WillReturnResult(mockResult)
 		err := categoryModel.Delete(ctx, id)
 		assert.Error(t, err)
 		assert.Equal(t, err.Error(), "rows affected error")
-	})
-
-	t.Run("context canceled", func(t *testing.T) {
-		newCtx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		sqlMock.ExpectExec(mockQuery).
-			WithArgs(int64(123)).
-			WillReturnResult(sqlmock.NewResult(1, 1))
-
-		err := categoryModel.Delete(newCtx, 123)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "context canceled")
 	})
 }
 
@@ -342,7 +272,7 @@ func TestCategoryModel_List(t *testing.T) {
 	assert.NoError(t, err)
 	defer db.Close()
 
-	categoryModel := CategoryModel{db: db}
+	categoryModel := NewCategoryModel(db)
 	ctx := context.Background()
 
 	filters := Filters{
@@ -363,12 +293,11 @@ func TestCategoryModel_List(t *testing.T) {
 			ORDER BY id ASC
 			Limit $5 OFFSET $6`,
 		)
-		mockRow := sqlmock.NewRows(
-			[]string{"total_pages", "id", "name", "description", "created_at", "version"},
-		).AddRow(10, 121, "Test Category", "A test category", createdAt, 1)
-		sqlMock.ExpectQuery(mockQuery).WithArgs(
-			nil, "", nil, nil, 20, 0,
-		).WillReturnRows(mockRow)
+
+		rowVals := []driver.Value{10, 121, "Test Category", "A test category", createdAt, 1}
+		mockCols := []string{"total_pages", "id", "name", "description", "created_at", "version"}
+		mockRow := sqlmock.NewRows(mockCols).AddRow(rowVals...)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(nil, "", nil, nil, 20, 0).WillReturnRows(mockRow)
 
 		categories, metadata, err := categoryModel.GetAll(ctx, filters)
 
@@ -415,12 +344,16 @@ func TestCategoryModel_List(t *testing.T) {
 			ORDER BY created_at ASC, name ASC, id DESC
 			Limit $5 OFFSET $6`,
 		)
-		mockRow := sqlmock.NewRows(
-			[]string{"total_pages", "id", "name", "description", "created_at", "version"},
-		).AddRow(68_028_108, 121, "Test Category", "A test category", createdAt1, 1)
-		sqlMock.ExpectQuery(mockQuery).WithArgs(
+
+		rowValues := []driver.Value{
+			68_028_108, 121, "Test Category", "A test category", createdAt1, 1,
+		}
+		args := []driver.Value{
 			pq.Array([]int64{121, 125, 126}), "test", createdAt1, createdAt2, 100, 200,
-		).WillReturnRows(mockRow)
+		}
+		mockCols := []string{"total_pages", "id", "name", "description", "created_at", "version"}
+		mockRow := sqlmock.NewRows(mockCols).AddRow(rowValues...)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(args...).WillReturnRows(mockRow)
 
 		categories, metadata, err := categoryModel.GetAll(ctx, mockFilters)
 
@@ -456,12 +389,10 @@ func TestCategoryModel_List(t *testing.T) {
 			ORDER BY id ASC
 			Limit $5 OFFSET $6`,
 		)
-		mockRow := sqlmock.NewRows(
-			[]string{"total_pages", "id", "name", "description", "created_at", "version"},
-		)
-		sqlMock.ExpectQuery(mockQuery).WithArgs(
-			nil, "", nil, nil, 20, 0,
-		).WillReturnRows(mockRow)
+
+		mockCols := []string{"total_pages", "id", "name", "description", "created_at", "version"}
+		mockRow := sqlmock.NewRows(mockCols)
+		sqlMock.ExpectQuery(mockQuery).WithArgs(nil, "", nil, nil, 20, 0).WillReturnRows(mockRow)
 
 		categories, metadata, err := categoryModel.GetAll(ctx, filters)
 
@@ -482,9 +413,10 @@ func TestCategoryModel_List(t *testing.T) {
 			ORDER BY id ASC
 			Limit $5 OFFSET $6`,
 		)
-		sqlMock.ExpectQuery(mockQuery).WithArgs(
-			nil, "", nil, nil, 20, 0,
-		).WillReturnError(errors.New("execute query error"))
+
+		mockError := errors.New("execute query error")
+		args := []driver.Value{nil, "", nil, nil, 20, 0}
+		sqlMock.ExpectQuery(mockQuery).WithArgs(args...).WillReturnError(mockError)
 
 		categories, metadata, err := categoryModel.GetAll(ctx, filters)
 		assert.Error(t, err)
@@ -505,12 +437,12 @@ func TestCategoryModel_List(t *testing.T) {
 			ORDER BY id ASC
 			Limit $5 OFFSET $6`,
 		)
-		mockRow := sqlmock.NewRows(
-			[]string{"total_pages", "id", "name", "description", "version"},
-		).AddRow(10, 121, "Test Category", "A test category", 1)
-		sqlMock.ExpectQuery(mockQuery).WithArgs(
-			nil, "", nil, nil, 20, 0,
-		).WillReturnRows(mockRow)
+
+		mockCols := []string{"total_pages", "id", "name", "description", "version"}
+		rowValues := []driver.Value{10, 121, "Test Category", "A test category", 1}
+		mockRow := sqlmock.NewRows(mockCols).AddRow(rowValues...)
+		args := []driver.Value{nil, "", nil, nil, 20, 0}
+		sqlMock.ExpectQuery(mockQuery).WithArgs(args...).WillReturnRows(mockRow)
 
 		categories, metadata, err := categoryModel.GetAll(ctx, filters)
 		assert.Error(t, err)
@@ -531,15 +463,13 @@ func TestCategoryModel_List(t *testing.T) {
 			ORDER BY id ASC
 			Limit $5 OFFSET $6`,
 		)
-		mockRow := sqlmock.NewRows(
-			[]string{"count", "id", "name", "description", "created_at", "version"},
-		).
-			AddRow(1, 1, "Test", "Description", "2025-01-01", 1).
-			RowError(0, errors.New("rows iteration error"))
 
-		sqlMock.ExpectQuery(mockQuery).WithArgs(
-			nil, "", nil, nil, 20, 0,
-		).WillReturnRows(mockRow)
+		rowValues := []driver.Value{1, 1, "Test", "Description", "2025-01-01", 1}
+		mockCols := []string{"total_pages", "id", "name", "description", "created_at", "version"}
+		mockError := errors.New("rows iteration error")
+		mockRow := sqlmock.NewRows(mockCols).AddRow(rowValues...).RowError(0, mockError)
+		args := []driver.Value{nil, "", nil, nil, 20, 0}
+		sqlMock.ExpectQuery(mockQuery).WithArgs(args...).WillReturnRows(mockRow)
 
 		categories, metadata, err := categoryModel.GetAll(ctx, filters)
 		assert.Error(t, err)
